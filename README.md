@@ -2,6 +2,10 @@
 
 **Roguelike akciójáték PC-re:** az Arkangyal alászáll a Pokol hét gyűrűjén. Minden gyűrű egy főbűn, és mindegyik végén annak démona vár. A legalsó gyűrűben Lucifer, a **Kevélység** áll, amelyből minden más bűn fakad.
 
+## Játék online
+
+**https://hotachi-code.github.io/The-Arkangel/**: bárhonnan megnyitható böngészőben (billentyűzet és egér kell hozzá).
+
 ## Letöltés és indítás (telepítés nélkül)
 
 1. Töltsd le a **`TheArkangel.html`** fájlt (GitHubon: a fájl megnyitása, majd *Download raw file*; vagy *Code → Download ZIP*).
