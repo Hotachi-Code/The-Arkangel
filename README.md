@@ -4,7 +4,21 @@
 
 ## Játék online
 
-**https://hotachi-code.github.io/The-Arkangel/**: bárhonnan megnyitható böngészőben (billentyűzet és egér kell hozzá).
+**https://hotachi-code.github.io/The-Arkangel/**: bárhonnan megnyitható böngészőben, PC-n és telefonon is.
+
+### Telefonon
+
+Nyisd meg a linket, fordítsd fekvőbe a telefont, és érintsd meg a képernyőt (teljes képernyőre vált).
+
+| Érintés | Művelet |
+|---|---|
+| **Bal hüvelykujj** húzása | mozgás |
+| **Jobb hüvelykujj** húzása | célzás és lövés |
+| **Jobb hüvelykujj** érintése (húzás nélkül) | automatikus célzás a legközelebbi démonra |
+| **KITÉRÉS** gomb | kitérés |
+| **NOVA** gomb | Szent Nova |
+| **VÉTEL** gomb (boltban, tárgy mellett) | vásárlás |
+| **❚❚** gomb | szünet |
 
 ## Letöltés és indítás (telepítés nélkül)
 
