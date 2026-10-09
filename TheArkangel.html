@@ -2,12 +2,15 @@
 <html lang="hu">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>The Arkangel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
-  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
   body{display:flex;align-items:center;justify-content:center}
   canvas{display:block;cursor:crosshair;outline:none}
 </style>
@@ -184,6 +187,132 @@ addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.down = false; if (state === 'play') state = 'pause'; });
 function toggleFS() { try { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); } catch (e) { } }
+
+// ---------- érintéses vezérlés (telefon / tablet) ----------
+// Bal térfél: mozgás-joystick. Jobb térfél: célzó-joystick (húzva lő; csak érintve a legközelebbi démonra lő).
+// Gombok: kitérés, Szent Nova, vásárlás, szünet.
+const touch = {
+  on: matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window,
+  move: null, aim: null, btns: {},
+};
+const TB = {
+  dash: { x: W - 80, y: H - 80, r: 44, label: 'KITÉRÉS' },
+  nova: { x: W - 190, y: H - 52, r: 34, label: 'NOVA' },
+  use: { x: W - 80, y: H - 200, r: 34, label: 'VÉTEL' },
+  pause: { x: 742, y: 32, r: 20, label: '' },
+};
+function tpos(t) { const r = cv.getBoundingClientRect(); return { x: (t.clientX - r.left) / r.width * W, y: (t.clientY - r.top) / r.height * H }; }
+function nearShopItem() {
+  if (!G || G.room.type !== 'shop') return null;
+  for (const it of G.room.items) if (!it.sold && dist(it, G.p) <= 40) return it;
+  return null;
+}
+function tbVisible(k) { return k !== 'use' || !!nearShopItem(); }
+function tryLandscape() {
+  try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { }
+  try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => { }); } catch (e) { }
+}
+function touchStart(e) {
+  e.preventDefault(); touch.on = true; audioInit();
+  for (const t of e.changedTouches) {
+    const q = tpos(t);
+    if (state !== 'play') {
+      // harc közben érkező érintések ne válasszanak/indítsanak véletlenül
+      if ((state === 'dead' || state === 'win') && gt < 1.2) continue;
+      if (state === 'choice' && performance.now() - G.choice.at < 700) continue;
+      mouse.x = q.x; mouse.y = q.y;
+      if (state === 'title') tryLandscape();
+      if (state === 'pause' && q.y > 470) state = 'title';
+      else onClick(0);
+      continue;
+    }
+    let hit = null;
+    for (const k in TB) { const b = TB[k]; if (tbVisible(k) && Math.hypot(q.x - b.x, q.y - b.y) < b.r + 14) { hit = k; break; } }
+    if (hit) {
+      touch.btns[t.identifier] = hit;
+      if (hit === 'dash') dash(); else if (hit === 'nova') nova(); else if (hit === 'use') interact(); else if (hit === 'pause') state = 'pause';
+    } else if (q.x < W / 2) { if (!touch.move) touch.move = { id: t.identifier, ox: q.x, oy: q.y, x: q.x, y: q.y }; }
+    else if (!touch.aim) touch.aim = { id: t.identifier, ox: q.x, oy: q.y, x: q.x, y: q.y };
+  }
+}
+function touchMove(e) {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const q = tpos(t);
+    for (const k of ['move', 'aim']) {
+      const s = touch[k]; if (!s || s.id !== t.identifier) continue;
+      s.x = q.x; s.y = q.y;
+      const dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy), mx = 70;
+      if (d > mx) { s.ox = s.x - dx / d * mx; s.oy = s.y - dy / d * mx; } // a joystick követi az ujjat
+    }
+  }
+}
+function touchEnd(e) {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (touch.move && touch.move.id === t.identifier) touch.move = null;
+    if (touch.aim && touch.aim.id === t.identifier) touch.aim = null;
+    delete touch.btns[t.identifier];
+  }
+}
+addEventListener('touchstart', touchStart, { passive: false });
+addEventListener('touchmove', touchMove, { passive: false });
+addEventListener('touchend', touchEnd, { passive: false });
+addEventListener('touchcancel', touchEnd, { passive: false });
+addEventListener('blur', () => { touch.move = touch.aim = null; touch.btns = {}; });
+function touchMoveDir() {
+  const s = touch.move; if (!s) return null;
+  const dx = s.x - s.ox, dy = s.y - s.oy; if (Math.hypot(dx, dy) < 10) return null;
+  return { x: dx, y: dy };
+}
+function touchAim(p) {
+  const s = touch.aim; if (!s) return null;
+  const dx = s.x - s.ox, dy = s.y - s.oy;
+  if (Math.hypot(dx, dy) >= 14) return Math.atan2(dy, dx);
+  // csak érintés, húzás nélkül: automatikus célzás a legközelebbi démonra
+  let best = null, bd = 1e9;
+  for (const e of G.enemies) { if (e.dead) continue; const d = dist(e, p); if (d < bd) { bd = d; best = e; } }
+  if (G.boss && !G.boss.dead && G.bossAlive) { const d = dist(G.boss, p); if (d < bd) { bd = d; best = G.boss; } }
+  return best ? angTo(p, best) : p.face;
+}
+function drawStick(s, col) {
+  ctx.globalAlpha = 0.35; ctx.strokeStyle = col; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(s.ox, s.oy, 70, 0, TAU); ctx.stroke();
+  ctx.globalAlpha = 0.5; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(s.x, s.y, 28, 0, TAU); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function drawTouch() {
+  if (!touch.on || state !== 'play' || !G) return;
+  ctx.save(); ctx.textAlign = 'center';
+  if (touch.move) drawStick(touch.move, '#fff6c8');
+  else { ctx.globalAlpha = 0.18; ctx.fillStyle = '#fff'; ctx.font = `bold 13px ${SANS}`; ctx.fillText('◀ húzd: mozgás ▶', 150, H - 40); ctx.globalAlpha = 1; }
+  if (touch.aim) drawStick(touch.aim, '#ffd75e');
+  else { ctx.globalAlpha = 0.18; ctx.fillStyle = '#fff'; ctx.font = `bold 13px ${SANS}`; ctx.fillText('érintsd / húzd: lövés', W / 2 + 170, H - 40); ctx.globalAlpha = 1; }
+  const p = G.p, held = new Set(Object.values(touch.btns));
+  for (const k in TB) {
+    if (!tbVisible(k)) continue;
+    const b = TB[k];
+    let ready = true, frac = 1, col = '#fff6c8';
+    if (k === 'dash') { frac = p.dashCool > 0 ? 1 - p.dashCool / p.dashCd : 1; ready = frac >= 1; }
+    if (k === 'nova') { frac = p.grace / p.maxGrace; ready = frac >= 1; col = '#ffd75e'; }
+    if (k === 'use') col = '#8fe8ff';
+    ctx.globalAlpha = held.has(k) ? 0.7 : 0.4; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
+    ctx.globalAlpha = ready ? 0.9 : 0.45; ctx.strokeStyle = col; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
+    ctx.fillStyle = col;
+    if (k === 'pause') { ctx.fillRect(b.x - 7, b.y - 8, 5, 16); ctx.fillRect(b.x + 2, b.y - 8, 5, 16); }
+    else { ctx.font = `bold ${b.r > 40 ? 13 : 11}px ${SANS}`; ctx.fillText(b.label, b.x, b.y + 4); }
+  }
+  ctx.restore();
+}
+function drawRotateHint() {
+  if (!touch.on || innerWidth >= innerHeight) return;
+  ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#ffe27a'; ctx.font = `700 46px ${SERIF}`;
+  ctx.fillText('⟳ Fordítsd el a telefont', CX, CY - 10);
+  ctx.font = `24px ${SANS}`; ctx.fillStyle = '#ddd'; ctx.fillText('A játék fekvő nézetben játszható', CX, CY + 40);
+  ctx.restore();
+}
 
 // ---------- állapot ----------
 let state = 'title', G = null, last = performance.now(), gt = 0, storyT = 0;
@@ -380,7 +509,7 @@ function applyBlessing(b) {
   part(G.p.x, G.p.y, '#fff2b0', 40, 220, 0.9, 4);
   sfx('holy');
 }
-function openChoice(src, cb) { G.choice = { opts: pickBlessings(3), src, cb }; state = 'choice'; }
+function openChoice(src, cb) { G.choice = { opts: pickBlessings(3), src, cb, at: performance.now() }; state = 'choice'; }
 function pick(i) {
   const c = G.choice; if (!c || !c.opts[i]) return;
   G.choice = null; state = 'play'; mouse.down = false;
@@ -403,6 +532,7 @@ function shoot(a) {
 }
 function moveDir() {
   let x = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), y = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0);
+  if (!x && !y) { const t = touchMoveDir(); if (t) return t; }
   return { x, y };
 }
 function dash() {
@@ -824,8 +954,10 @@ function updatePlayer(dt) {
   const ax = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0), ay = (keys.ArrowDown ? 1 : 0) - (keys.ArrowUp ? 1 : 0);
   let aim = null;
   if (ax || ay) aim = Math.atan2(ay, ax);
+  else if (touch.aim) aim = touchAim(p);
   else if (mouse.down) aim = Math.atan2(mouse.y - p.y, mouse.x - p.x);
-  p.face = aim !== null ? aim : Math.atan2(mouse.y - p.y, mouse.x - p.x);
+  const tm = touch.on && aim === null ? touchMoveDir() : null;
+  p.face = aim !== null ? aim : tm ? Math.atan2(tm.y, tm.x) : touch.on ? p.face : Math.atan2(mouse.y - p.y, mouse.x - p.x);
   p.fireT = Math.max(0, p.fireT - dt);
   if (aim !== null && p.fireT <= 0) { p.fireT = p.fireDelay; shoot(aim); }
 
@@ -999,7 +1131,7 @@ function buildRoomCanvas(room) {
   }
   if (room.type === 'start' && G.ring === 0) {
     g.fillStyle = 'rgba(255,255,255,0.22)'; g.font = `14px ${SANS}`; g.textAlign = 'center';
-    g.fillText('WASD: mozgás   •   Bal egérgomb / nyilak: lövés   •   Space: kitérés   •   Q / jobb klikk: Szent Nova', CX, B - 40);
+    g.fillText(touch.on ? 'Bal hüvelykujj: mozgás   •   Jobb hüvelykujj: lövés   •   KITÉRÉS és NOVA gomb' : 'WASD: mozgás   •   Bal egérgomb / nyilak: lövés   •   Space: kitérés   •   Q / jobb klikk: Szent Nova', CX, B - 40);
     g.fillText('Tisztítsd meg a termeket, keresd meg a gyűrű démonát (piros ajtó a térképen).', CX, B - 20);
   }
   return c;
@@ -1395,7 +1527,7 @@ function drawHUD() {
   ctx.fillStyle = '#fff'; ctx.fillText(`♥ ${Math.ceil(p.hp)} / ${p.maxHp}`, 22, 24);
   const full = p.grace >= p.maxGrace;
   bar(16, 36, 220, 10, p.grace / p.maxGrace, full ? `hsl(${45 + Math.sin(gt * 6) * 10},100%,70%)` : '#c9a640');
-  ctx.fillStyle = full ? '#fff6c8' : '#aa9a70'; ctx.font = `bold 10px ${SANS}`; ctx.fillText(full ? 'SZENT NOVA KÉSZ — [Q] / jobb klikk' : 'Kegyelem', 22, 45);
+  ctx.fillStyle = full ? '#fff6c8' : '#aa9a70'; ctx.font = `bold 10px ${SANS}`; ctx.fillText(full ? (touch.on ? 'SZENT NOVA KÉSZ — NOVA gomb' : 'SZENT NOVA KÉSZ — [Q] / jobb klikk') : 'Kegyelem', 22, 45);
   for (let i = 0; i < p.shieldMax; i++) { ctx.fillStyle = i < p.shield ? '#8fe8ff' : '#333'; ctx.font = `14px ${SANS}`; ctx.fillText('⛨', 245 + i * 16, 25); }
   ctx.font = `bold 15px ${SANS}`; ctx.fillStyle = '#8fe8ff'; ctx.fillText(`◈ ${G.souls}`, 250, 52);
   // kitérés
@@ -1508,9 +1640,10 @@ function drawTitle() {
   ctx.fillStyle = tg; ctx.shadowColor = '#ffd75e'; ctx.shadowBlur = 25; ctx.fillText('THE ARKANGEL', CX, 130); ctx.shadowBlur = 0;
   ctx.font = `600 19px ${SERIF}`; ctx.fillStyle = '#e8c8a8'; ctx.fillText('Alászállás a Pokol hét gyűrűjén', CX, 168);
   ctx.globalAlpha = 0.6 + Math.sin(gt * 3) * 0.4; ctx.font = `700 20px ${SERIF}`; ctx.fillStyle = '#fff';
-  ctx.fillText('Kattints vagy nyomj ENTER-t a kezdéshez', CX, 450); ctx.globalAlpha = 1;
+  ctx.fillText(touch.on ? 'Érintsd meg a kezdéshez' : 'Kattints vagy nyomj ENTER-t a kezdéshez', CX, 450); ctx.globalAlpha = 1;
   ctx.font = `13px ${SANS}`; ctx.fillStyle = '#b8a8a0';
-  ctx.fillText('WASD mozgás  •  Egér / nyilak lövés  •  Space kitérés  •  Q Szent Nova  •  E vásárlás  •  Esc szünet  •  F teljes képernyő  •  M hang', CX, 500);
+  ctx.fillText(touch.on ? 'Bal hüvelykujj: mozgás  •  Jobb hüvelykujj: célzás és lövés (érintés = automatikus célzás)  •  Gombok: kitérés, Nova, vétel'
+    : 'WASD mozgás  •  Egér / nyilak lövés  •  Space kitérés  •  Q Szent Nova  •  E vásárlás  •  Esc szünet  •  F teljes képernyő  •  M hang', CX, 500);
   ctx.fillStyle = '#7a6a70';
   ctx.fillText(`Legmélyebb gyűrű: ${best.ring ? ROMAN[Math.min(6, best.ring - 1)] : '—'}   •   Győzelmek: ${best.wins}`, CX, 530);
 }
@@ -1564,19 +1697,21 @@ function drawWin() {
   const mm = Math.floor(G.time / 60), ss = Math.floor(G.time % 60);
   ctx.fillText(`Legyőzött démonok: ${G.kills}   •   Áldások: ${G.blessings.length}   •   Idő: ${mm}:${ss < 10 ? '0' : ''}${ss}`, CX, 440);
   ctx.globalAlpha = 0.6 + Math.sin(gt * 3) * 0.4; ctx.font = `700 20px ${SERIF}`; ctx.fillStyle = '#fff';
-  ctx.fillText('ENTER — vissza a főmenübe', CX, 500); ctx.globalAlpha = 1;
+  ctx.fillText(touch.on ? 'Érintés — folytatás   •   ide érints — főmenü' : 'ENTER — vissza a főmenübe', CX, 500); ctx.globalAlpha = 1;
 }
 
 function render() {
   const s = cv.width / W; ctx.setTransform(s, 0, 0, s, 0, 0);
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-  if (state === 'title') return drawTitle();
-  if (state === 'story') return drawStory();
+  if (state === 'title') { drawTitle(); return drawRotateHint(); }
+  if (state === 'story') { drawStory(); return drawRotateHint(); }
   if (G) drawGame();
+  drawTouch();
   if (state === 'choice') drawChoice();
   else if (state === 'pause') drawPause();
   else if (state === 'dead') drawDead();
   else if (state === 'win') drawWin();
+  drawRotateHint();
 }
 
 function frame(now) {
