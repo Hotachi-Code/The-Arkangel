@@ -55,9 +55,12 @@ Internet nem kell hozzá. Az egész játék egyetlen fájl.
 | VI. | Irigység (Invidia) | Leviatán |
 | VII. | **Kevélység (Superbia)** | **Lucifer** (háromfázisú főellenség) |
 
-## Purgatórium, történet és fegyverek
+## Nyílt világ, történet és fegyverek
 
-- A futam a Purgatóriumban kezdődik, ahol **Vergiliusz** fogad. Minden gyűrű kézzel tervezett pálya, névvel ellátott termekkel, megszólítható lelkekkel (Paolo és Francesca, Ciacco, Midász, Belacqua, Filippo Argenti, Sapia, Omberto…), és a főellenség előtt párbeszéddel.
+- **Egyetlen nagy, bejárható világ**: középen a Purgatórium (Vergiliusz, a fegyvertalapzatok), körülötte hat bűn tája saját tereppel (rózsabokrok, iszap, aranyhalmok, mocsár, lávafolyók, kristályok), északon a hat lakattal lezárt Kevélység. Követő kamera, minitérkép és teljes térkép (**N** / koppintás a minitérképre), bejárási köd.
+- **Helyszínek** minden tájban: névvel ellátott táborok hullámokkal, megszólítható lelkek (Paolo és Francesca, Ciacco, Midász, Belacqua, Filippo Argenti, Sapia, Omberto…), Égi Oltár, ereklyeoltár, a Bűnbánó Kalmár és a bűn démonának arénája.
+- **Véletlen találkozások** felfedezés közben: lesek, vándorló csapatok, bajba jutott lelkek, (néha elátkozott) ereklyetartók.
+- **Nincs töltényeső**: a démonok és a főellenségek egy MI segítségével választanak közelharci, távolsági és különleges mozdulataik közül (harapás, roham, csapás, köpés, becsapódás, teleport…). Minden támadást előre jeleznek, egyszerre csak néhány démon támad, a többi kerülget, és van, aki kitér a lövedékeid elől.
 - Hat fegyver áll a talapzatokon. Egyszerre egy közelharci és egy távolsági lehet nálad, köztük X / Tab / FEGYVER gombbal váltasz:
 
 | Fegyver | Típus | Lényeg |
@@ -75,7 +78,7 @@ Internet nem kell hozzá. Az egész játék egyetlen fájl.
 
 ## Fejlesztőknek
 
-A forrás a `src/` mappában van (`core.html` a motor, `weapons.js`, `upgrades.js`, `levels.js` a tartalom, `API.md` a leírás). A játékfájlt a `python3 build.py` állítja elő, a `tools/smoke.js` egy Playwright-füstteszt.
+A forrás a `src/` mappában van (`core.html` a motor, `world.js` a nyílt világ, `ai.js` az ellenség-MI, `weapons.js`, `upgrades.js`, `levels.js` a tartalom, `API.md` a leírás). A játékfájlt a `python3 build.py` állítja elő, a `tools/smoke.js` egy Playwright-füstteszt.
 
 ## A gyűrűk átkai
 

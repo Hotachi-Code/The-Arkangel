@@ -10,9 +10,11 @@ python3 build.py --only weapons.js --out /tmp/a.html   # csak a saját részedde
 NODE_PATH=$(npm root -g) node tools/smoke.js /tmp/a.html /tmp/shot   # füstteszt + képernyőképek, 0 = nincs JS-hiba
 ```
 
-Koordináták: logikai vászon 960×640. Játéktér: `L=32, R=928, T=96, B=608`, közép `CX=480, CY=352`. Csempe 32 px,
-a terem 28×16 csempe (tx 0..27, ty 0..15; csempe-középpont: `L+(tx+.5)*32`, `T+(ty+.5)*32`).
-Felső HUD-sáv: y 0..64, felső fal: 64..96.
+Koordináták: a képernyő 960×640 (HUD: y 0..64), `CX/CY` a képernyő közepe (csak kezelőfelülethez).
+A játék **nyílt világban** fut (`src/world.js`): 168×128 csempe, csempe = `TS` (40 px), kamera: `CAM`.
+`L, R, T, B` a **látott világrész** határai világkoordinátában (minden képkockában frissül) – ehhez érdemes igazítani mindent, ami képernyőnyi.
+Ütközés: `tileAt(x,y)`, `walkable(x,y,r)`, `collideObst(c)`, `losClear(a,b)`, `findFree(x,y)`. Ellenség: `mkEnemy(típus, x, y, ri)` (`src/ai.js`).
+A `roomEnter`/`roomClear` események egy harci találkozás (tábor, les, aréna) kezdetét/végét jelzik; `G.room` az éppen aktív találkozás vagy a táj.
 
 ## Globális állapot
 - `G` – a futam. Fontos mezők: `p` (játékos), `enemies`, `bullets` (ellenséges és baráti is, `f:true` = baráti),

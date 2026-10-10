@@ -8,7 +8,7 @@ Haszn√°lat:  python3 build.py                       (TheArkangel.html, minden r√
 """
 import os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
-PARTS = ['weapons.js', 'upgrades.js', 'levels.js']
+PARTS = ['world.js', 'ai.js', 'weapons.js', 'upgrades.js', 'levels.js']
 
 def build(out, only=None):
     core = open(os.path.join(HERE, 'src', 'core.html'), encoding='utf-8').read()
