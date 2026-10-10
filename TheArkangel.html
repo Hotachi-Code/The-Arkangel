@@ -63,6 +63,25 @@ const RINGS = [
     verse: 'A legmélyebb jég. Itt trónol az, aki Isten fölé akart emelkedni.' },
 ];
 
+const CURSE = [
+  'Átok: a démonok érintése elbűvöl, egy pillanatig nem tudsz támadni.',
+  'Átok: a démonok felfalják a fényed, holtukban lassító epe marad.',
+  'Átok: minden találat lelkeket rabol. Öld meg a tolvajt, és visszakapod.',
+  'Átok: a köd elnyeli a fényt, a találatok elnehezítik a szárnyaidat.',
+  'Átok: a sebzett démonok tombolnak, haláluk után szétrobbannak.',
+  'Átok: minden találat elrabolja a Kegyelmedet.',
+  'Átok: a démonok aurája elcsábít, és magukhoz vonzanak.',
+];
+const PURG = { name: 'Purgatórium', latin: 'Purgatorium', col: '#bcd8ff', floor: '#1b1f2a', wall: '#2e3446', body: '#3a4258',
+  verse: 'Hét kapu. Hat bűn őrzi a hetedik lakatjait.' };
+const RG = () => (G && G.hub) ? PURG : RINGS[G ? G.ring : 6];
+const GATE_ORDER = [0, 1, 2, 6, 3, 4, 5];
+const WEAPONS = {
+  bow: { n: 'Szent Fény', d: 'Távolsági fénylövedékek' },
+  blade: { n: 'Égi Penge', d: 'Közelharci suhintás: nagy sebzés, több démont is ér, és kivágja a lövedékeket' },
+};
+const BOSS_HP = [650, 950, 1250, 1550, 1900, 2300];
+
 const BOSSES = [
   { key: 'asmodeus', name: 'ASMODEUS', title: 'A Bujaság Hercege', hp: 650, r: 38, spd: 80, atk: ['spiral', 'hearts', 'aimed', 'charm'],
     line: '„Maradj velem, angyal… az örökkévalóság oly édes.”' },
@@ -153,6 +172,9 @@ const SFX = {
   laser: () => { tone(300, 0.7, 'sawtooth', 0.06, 400); },
   boom: () => { noise(0.8, 0.25, 250); tone(60, 0.8, 'sine', 0.2, -30); },
   charge: () => tone(200, 0.5, 'sawtooth', 0.05, 300),
+  slash: () => { noise(0.12, 0.09, 4200); tone(700, 0.1, 'triangle', 0.04, -420); },
+  coin: () => { tone(1320, 0.07, 'square', 0.03); tone(990, 0.1, 'square', 0.03, 0, 0.05); },
+  unlock: () => { tone(220, 0.3, 'square', 0.06, 440); noise(0.3, 0.1, 1800); [659, 880, 1318].forEach((f, i) => tone(f, 0.5, 'sine', 0.06, 0, 0.2 + i * 0.08)); },
 };
 const lastS = {};
 function sfx(n) { const now = performance.now(); if (lastS[n] && now - lastS[n] < 45) return; lastS[n] = now; SFX[n](); }
@@ -166,7 +188,7 @@ function updateMusic(dt) {
   const boss = state === 'play' && G && G.bossAlive;
   const tempo = boss ? 0.19 : (state === 'play' ? 0.4 : 0.6);
   musT += tempo; musStep++;
-  const root = ROOTS[G && state !== 'title' && state !== 'story' ? G.ring : 6];
+  const root = G && state !== 'title' && state !== 'story' ? (G.hub ? 65.4 : ROOTS[G.ring]) : ROOTS[6];
   if (musStep % 4 === 0) tone(root * (boss ? 2 : 1), tempo * 3.6, 'triangle', boss ? 0.11 : 0.08);
   if (boss && musStep % 2 === 1) tone(root * 2, tempo * 0.9, 'sawtooth', 0.025, -root);
   if (Math.random() < (boss ? 0.6 : 0.38)) tone(root * 4 * Math.pow(2, choice(SCALE) / 12), tempo * 2, 'sine', 0.025);
@@ -198,7 +220,8 @@ const touch = {
 const TB = {
   dash: { x: W - 80, y: H - 80, r: 44, label: 'KITÉRÉS' },
   nova: { x: W - 190, y: H - 52, r: 34, label: 'NOVA' },
-  use: { x: W - 80, y: H - 200, r: 34, label: 'VÉTEL' },
+  use: { x: W - 175, y: H - 155, r: 32, label: 'VÉTEL' },
+  swap: { x: W - 62, y: H - 192, r: 28, label: 'FEGYVER' },
   pause: { x: 742, y: 32, r: 20, label: '' },
 };
 function tpos(t) { const r = cv.getBoundingClientRect(); return { x: (t.clientX - r.left) / r.width * W, y: (t.clientY - r.top) / r.height * H }; }
@@ -230,7 +253,7 @@ function touchStart(e) {
     for (const k in TB) { const b = TB[k]; if (tbVisible(k) && Math.hypot(q.x - b.x, q.y - b.y) < b.r + 14) { hit = k; break; } }
     if (hit) {
       touch.btns[t.identifier] = hit;
-      if (hit === 'dash') dash(); else if (hit === 'nova') nova(); else if (hit === 'use') interact(); else if (hit === 'pause') state = 'pause';
+      if (hit === 'dash') dash(); else if (hit === 'nova') nova(); else if (hit === 'use') interact(); else if (hit === 'swap') swapWeapon(); else if (hit === 'pause') state = 'pause';
     } else if (q.x < W / 2) { if (!touch.move) touch.move = { id: t.identifier, ox: q.x, oy: q.y, x: q.x, y: q.y }; }
     else if (!touch.aim) touch.aim = { id: t.identifier, ox: q.x, oy: q.y, x: q.x, y: q.y };
   }
@@ -301,7 +324,7 @@ function drawTouch() {
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
     ctx.fillStyle = col;
     if (k === 'pause') { ctx.fillRect(b.x - 7, b.y - 8, 5, 16); ctx.fillRect(b.x + 2, b.y - 8, 5, 16); }
-    else { ctx.font = `bold ${b.r > 40 ? 13 : 11}px ${SANS}`; ctx.fillText(b.label, b.x, b.y + 4); }
+    else { ctx.font = `bold ${b.r > 40 ? 13 : b.r < 30 ? 9 : 11}px ${SANS}`; ctx.fillText(b.label, b.x, b.y + 4); }
   }
   ctx.restore();
 }
@@ -320,7 +343,7 @@ const emb = [];
 let best = { ring: 0, wins: 0 };
 try { best = Object.assign(best, JSON.parse(localStorage.getItem('arkangel_best') || '{}')); } catch (e) { }
 function saveBest(won) {
-  best.ring = Math.max(best.ring, G.ring + 1); if (won) best.wins++;
+  best.ring = Math.max(best.ring, G.bossesKilled); if (won) best.wins++;
   try { localStorage.setItem('arkangel_best', JSON.stringify(best)); } catch (e) { }
 }
 
@@ -335,6 +358,7 @@ function onKey(c) {
     else if (c === 'KeyQ') nova();
     else if (c === 'Space' || c === 'ShiftLeft' || c === 'ShiftRight') dash();
     else if (c === 'KeyE') interact();
+    else if (c === 'KeyX' || c === 'Tab') swapWeapon();
   }
   else if (state === 'pause') { if (c === 'Escape' || c === 'KeyP' || c === 'Enter') state = 'play'; else if (c === 'KeyR') state = 'title'; }
   else if (state === 'choice') { const i = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[c]; if (i !== undefined) pick(i); }
@@ -366,21 +390,62 @@ function startRun() {
     bullets: [], enemies: [], parts: [], texts: [], hazards: [], beams: [], pickups: [],
     fade: 1, banner: null, bossAlive: false, boss: null, portal: null, shake: 0, hurtFx: 0, novaFx: null,
     afterBoss: 0, winT: 0, dying: 0, orbA: 0, charm: 0, roomT: 0, bossesKilled: 0,
+    lvl: 0, hub: true, defeated: [], weapon: 'bow', hubRoom: null, slashes: [], amb: [], msgT: 0,
   };
-  genFloor(); ringBanner();
+  enterHub(null);
   state = 'play'; sfx('door');
 }
-function ringBanner() {
-  const r = RINGS[G.ring];
-  G.banner = { title: `${ROMAN[G.ring]}. GYŰRŰ — ${r.name.toUpperCase()}`, sub: r.latin, line: r.verse, t: 0, dur: 4.5, col: r.col };
+function makeHub() {
+  const gates = GATE_ORDER.map((ri, i) => { const a = Math.PI + (i + 0.5) / 7 * Math.PI; return { ri, x: CX + Math.cos(a) * 385, y: CY + 150 + Math.sin(a) * 300 }; });
+  const peds = [{ w: 'bow', x: CX - 115, y: B - 105 }, { w: 'blade', x: CX + 115, y: B - 105 }];
+  return { x: 0, y: 0, type: 'hub', cleared: true, visited: true, seen: true, obst: [], pickups: [], items: [], taken: false, cache: null,
+    doors: { n: false, e: false, s: false, w: false }, gates, peds };
 }
-const eDmg = () => 9 + G.ring * 1.5, cDmg = () => 11 + G.ring * 2;
+function lockPos(k) {
+  const g = G.hubRoom.gates.find(q => q.ri === 6), a = Math.PI + (k + 0.5) / 6 * Math.PI;
+  return { x: g.x + Math.cos(a) * 50, y: g.y - 40 + Math.sin(a) * 50 };
+}
+function enterHub(fromRing) {
+  G.hub = true; G.rooms = {}; G.portal = null; G.parts.length = 0; G.texts.length = 0; G.amb.length = 0;
+  if (!G.hubRoom) G.hubRoom = makeHub();
+  enterRoom(G.hubRoom, null);
+  const p = G.p;
+  if (fromRing === null) {
+    p.x = CX; p.y = B - 40;
+    G.banner = { title: 'PURGATÓRIUM', sub: 'A tisztulás hegye', line: 'Válassz fegyvert, aztán lépj be egy kapun.', t: 0, dur: 4.2, col: PURG.col };
+  } else {
+    const g = G.hubRoom.gates.find(q => q.ri === fromRing); p.x = g.x; p.y = g.y + 70;
+    const bd = BOSSES[fromRing], left = 6 - G.defeated.filter(i => i < 6).length;
+    G.banner = { title: `${bd.name} ELBUKOTT`, sub: left > 0 ? `Egy lakat lehullott a Kevélység kapujáról. Még ${left} maradt.` : 'Az utolsó lakat is lehullott.',
+      line: left > 0 ? 'Válassz újabb kaput.' : '„A Kevélység kapuja nyitva áll. Lucifer vár.”', t: 0, dur: 4.6, col: RINGS[fromRing].col };
+    const q = lockPos(fromRing);
+    part(q.x, q.y, RINGS[fromRing].col, 60, 260, 1.2, 4); part(q.x, q.y, '#ffffff', 20, 160, 0.8, 3);
+    G.shake = 8; sfx('unlock');
+  }
+}
+function enterRing(ri) {
+  G.hub = false; G.ring = ri; G.lvl = G.defeated.length;
+  G.parts.length = 0; G.texts.length = 0; G.amb.length = 0;
+  genFloor(); ringBanner(); sfx('door'); sfx('holy');
+}
+function swapWeapon(to) {
+  if (!G || G.dying) return;
+  const w = to || (G.weapon === 'bow' ? 'blade' : 'bow');
+  if (w === G.weapon) return;
+  G.weapon = w; G.p.fireT = 0.15;
+  floatText(G.p.x, G.p.y - 40, WEAPONS[w].n, '#ffe27a', 1.2, 16); sfx('pick');
+}
+function ringBanner() {
+  const r = RG();
+  G.banner = { title: `${ROMAN[G.ring]}. GYŰRŰ — ${r.name.toUpperCase()}`, sub: r.latin, line: r.verse, curse: CURSE[G.ring], t: 0, dur: 5.2, col: r.col };
+}
+const eDmg = () => 9 + G.lvl * 1.5, cDmg = () => 11 + G.lvl * 2;
 
 // ---------- pálya generálás ----------
 const DIRS = [[0, -1, 'n'], [1, 0, 'e'], [0, 1, 's'], [-1, 0, 'w']];
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
 function genFloor() {
-  const n = 7 + G.ring;
+  const n = 7 + G.lvl;
   let map, list, dead;
   for (let tries = 0; tries < 300; tries++) {
     map = { '0,0': 1 }; list = [{ x: 0, y: 0 }];
@@ -421,8 +486,8 @@ function makeRoom(x, y, type) {
   if (type === 'normal') r.obst = genObst();
   if (type === 'shop') {
     const opts = pickBlessings(3);
-    r.items = opts.map((b, i) => ({ bl: b, x: 330 + i * 100, y: CY + 20, price: randi(14, 20) + G.ring * 5 }));
-    r.items.push({ heal: true, x: 630, y: CY + 20, price: 8 + G.ring * 2 });
+    r.items = opts.map((b, i) => ({ bl: b, x: 330 + i * 100, y: CY + 20, price: randi(14, 20) + G.lvl * 5 }));
+    r.items.push({ heal: true, x: 630, y: CY + 20, price: 8 + G.lvl * 2 });
   }
   return r;
 }
@@ -448,7 +513,7 @@ function genObst() {
 }
 function enterRoom(room, from) {
   G.room = room; G.bullets.length = 0; G.enemies.length = 0; G.hazards.length = 0; G.beams.length = 0;
-  G.fade = 1; G.roomT = 0; G.charm = 0; G.bossAlive = false; G.boss = null;
+  G.fade = 1; G.roomT = 0; G.charm = 0; G.bossAlive = false; G.boss = null; G.slashes.length = 0;
   room.visited = true; room.seen = true;
   for (const [dx, dy] of DIRS) { const nb = G.rooms[(room.x + dx) + ',' + (room.y + dy)]; if (nb) nb.seen = true; }
   const p = G.p;
@@ -478,22 +543,22 @@ function freePos(margin = 40, minD = 200) {
   return { x: CX + rand(-200, 200), y: T + 80 };
 }
 function spawnWave() {
-  const ring = RINGS[G.ring];
-  const n = 3 + Math.floor(G.ring * 0.6) + randi(0, 2);
+  const ring = RG();
+  const n = 3 + Math.floor(G.lvl * 0.6) + randi(0, 2);
   for (let i = 0; i < n; i++) { const q = freePos(40, 230); G.enemies.push(mkEnemy(choice(ring.enemies), q.x, q.y)); }
 }
 function mkEnemy(type, x, y) {
-  const d = ET[type], m = 1 + 0.45 * G.ring;
-  return { type, x, y, r: d.r, hp: d.hp * m, maxHp: d.hp * m, spd: d.spd * (1 + 0.04 * G.ring), t: rand(0, 2), st: 0, stT: rand(0.8, 2),
+  const d = ET[type], m = 1 + 0.45 * G.lvl;
+  return { type, x, y, r: d.r, hp: d.hp * m, maxHp: d.hp * m, spd: d.spd * (1 + 0.04 * G.lvl), t: rand(0, 2), st: 0, stT: rand(0.8, 2),
     flash: 0, spawn: 0.7, burn: 0, orbCd: 0, alpha: 1, ghost: false, side: Math.random() < 0.5 ? 1 : -1, spin: rand(0, TAU), shT: 0, boss: false, dead: false };
 }
 function spawnBoss() {
-  const bd = BOSSES[G.ring];
+  const bd = BOSSES[G.ring], bhp = bd.key === 'lucifer' ? bd.hp : BOSS_HP[Math.min(5, G.lvl)];
   const b = mkEnemy('imp', CX, T + 150);
-  Object.assign(b, { type: 'boss', key: bd.key, bd, boss: true, r: bd.r, hp: bd.hp, maxHp: bd.hp, spd: bd.spd, spawn: 0, intro: 2.6, atk: null, gap: 1,
-    at: 0, ac: 0, shotT: 0, tx: CX, ty: T + 150, phase: 1, sm: 1 + G.ring * 0.04, inv: 0, trail: [], lastAtk: null });
+  Object.assign(b, { type: 'boss', key: bd.key, bd, boss: true, r: bd.r, hp: bhp, maxHp: bhp, spd: bd.spd, spawn: 0, intro: 2.6, atk: null, gap: 1,
+    at: 0, ac: 0, shotT: 0, tx: CX, ty: T + 150, phase: 1, sm: 1 + G.lvl * 0.04, inv: 0, trail: [], lastAtk: null });
   G.enemies.push(b); G.boss = b; G.bossAlive = true;
-  G.banner = { title: bd.name, sub: bd.title, line: bd.line, t: 0, dur: 3.6, col: RINGS[G.ring].col };
+  G.banner = { title: bd.name, sub: bd.title, line: bd.line, t: 0, dur: 3.6, col: RG().col };
   sfx('roar'); G.shake = 10;
 }
 
@@ -529,6 +594,53 @@ function shoot(a) {
   for (let i = 0; i < n; i++) fb(a + (i - (n - 1) / 2) * p.spreadA);
   if (p.back) fb(a + Math.PI);
   sfx('shoot');
+}
+function arcDiff(a, b) { return Math.abs(((a - b + Math.PI) % TAU + TAU) % TAU - Math.PI); }
+function slash(a) {
+  const p = G.p, reach = 64 + p.size * 3 + (p.range / 0.85 - 1) * 60 + (p.shotSpd / 560 - 1) * 30, half = 0.95 + (p.shots - 1) * 0.22;
+  for (const da of p.back ? [a, a + Math.PI] : [a]) {
+    G.slashes.push({ a: da, reach, half, t: 0 });
+    for (const e of G.enemies) {
+      if (e.dead || e.ghost || e.spawn > 0) continue;
+      const d = dist(e, p); if (d > reach + e.r) continue;
+      if (d > e.r + 8 && arcDiff(angTo(p, e), da) > half) continue;
+      const cr = Math.random() < p.crit;
+      dmgEnemy(e, p.dmg * 2.4 * (cr ? 3 : 1), cr);
+      if (!e.boss && !e.dead && e.type !== 'turret') { e.x += Math.cos(da) * 18; e.y += Math.sin(da) * 18; }
+      part(e.x, e.y, '#fff2b0', 7, 180, 0.35, 2.5);
+    }
+    for (const b of G.bullets) {
+      if (b.f || b.dead) continue;
+      const d = Math.hypot(b.x - p.x, b.y - p.y); if (d > reach + b.r) continue;
+      if (arcDiff(Math.atan2(b.y - p.y, b.x - p.x), da) <= half) { b.dead = true; part(b.x, b.y, '#fff2b0', 3, 90, 0.25, 2); }
+    }
+  }
+  p.lunge = 0.07; p.lungeA = a; p.swing = 0.2;
+  sfx('slash');
+}
+function nearestEnemy() {
+  let best = null, bd = 1e9;
+  for (const e of G.enemies) { if (e.dead) continue; const d = dist(e, G.p); if (d < bd) { bd = d; best = e; } }
+  return best;
+}
+function curseHit(src) {
+  if (G.hub || G.dying) return;
+  const p = G.p, ri = G.ring;
+  if (ri === 0) { p.lustT = 1.0; floatText(p.x, p.y - 36, '♥ Elbűvölve', '#ff7ac0', 0.9, 13); }
+  else if (ri === 1) {
+    const e = src || nearestEnemy();
+    if (e && !e.dead) { e.hp = Math.min(e.maxHp, e.hp + e.maxHp * (e.boss ? 0.03 : 0.3)); floatText(e.x, e.y - e.r - 12, 'falás +', '#b8d43a', 0.8, 12); part(p.x, p.y, '#b8d43a', 10, 160, 0.5, 3); }
+  } else if (ri === 2) {
+    const n = Math.min(G.souls, 3 + G.lvl);
+    if (n > 0) {
+      G.souls -= n; const e = src || nearestEnemy(); if (e) e.loot = (e.loot || 0) + n;
+      floatText(p.x, p.y - 36, `-${n} ◈ elrabolva`, '#ffc23a', 1.1, 14); part(p.x, p.y, '#ffd700', 14, 200, 0.5, 3); sfx('coin');
+    }
+  } else if (ri === 3) { p.slow = Math.max(p.slow, 1.6); p.dashCool = Math.max(p.dashCool, p.dashCd); floatText(p.x, p.y - 36, 'Elnehezülsz…', '#8fb0e0', 0.9, 13); }
+  else if (ri === 5) {
+    const n = Math.min(p.grace, 35);
+    if (n > 1) { p.grace -= n; floatText(p.x, p.y - 36, '-Kegyelem', '#3ddc84', 0.9, 13); part(p.x, p.y, '#3ddc84', 10, 160, 0.5, 3); }
+  }
 }
 function moveDir() {
   let x = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), y = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0);
@@ -575,7 +687,7 @@ function dmgEnemy(e, d, cr, nova) {
 }
 function killEnemy(e, silent) {
   if (e.dead) return; e.dead = true;
-  const col = RINGS[G.ring].col;
+  const col = RG().col;
   part(e.x, e.y, col, e.boss ? 160 : 18, e.boss ? 500 : 200, e.boss ? 1.6 : 0.6, e.boss ? 6 : 3.5);
   part(e.x, e.y, '#000', 8, 120, 0.6, 5);
   if (silent) return;
@@ -584,6 +696,11 @@ function killEnemy(e, silent) {
   if (p.lifesteal) p.hp = Math.min(p.maxHp, p.hp + p.lifesteal);
   p.grace = Math.min(p.maxGrace, p.grace + 3 * p.graceGain);
   if (e.type === 'splitter') for (let i = 0; i < 2; i++) { const m = mkEnemy('mini', e.x + rand(-10, 10), e.y + rand(-10, 10)); m.spawn = 0.1; G.enemies.push(m); }
+  if (e.loot) { const n = Math.ceil(e.loot * 1.3); for (let i = 0; i < n; i++) dropPickup('soul', e.x, e.y); floatText(e.x, e.y - 20, `+${n} ◈ visszaszerezve`, '#ffd700', 1.2, 14); }
+  if (!G.hub && !e.boss) {
+    if (G.ring === 1 && Math.random() < 0.5) G.hazards.push({ x: e.x, y: e.y, r: 44, type: 'slow', bile: 1, warn: 0.25, life: 3.5 });
+    if (G.ring === 4) { radial(e.x, e.y, 6, 150, rand(0, 1), { col: '#ff8a3a' }); part(e.x, e.y, '#ff8a3a', 16, 260, 0.5, 4); }
+  }
   if (e.boss) { bossDown(e); return; }
   const ns = Math.round((e.type === 'brute' || e.type === 'turret' ? randi(2, 4) : randi(0, 2)) * p.soulMul);
   for (let i = 0; i < ns; i++) dropPickup('soul', e.x, e.y);
@@ -593,12 +710,13 @@ function dropPickup(type, x, y) {
   const a = rand(0, TAU), s = rand(60, 180);
   G.room.pickups.push({ type, x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0 });
 }
-function hurtPlayer(d) {
+function hurtPlayer(d, src) {
   const p = G.p;
   if (p.inv > 0 || p.dashT > 0 || G.dying || state !== 'play') return;
   if (p.shield > 0) { p.shield--; p.shieldT = 0; p.inv = 0.6; sfx('block'); part(p.x, p.y, '#8fe8ff', 25, 220, 0.5, 3); return; }
   p.hp -= d; p.inv = 0.9; G.shake = Math.max(G.shake, 8); G.hurtFx = 0.35; sfx('hurt');
   part(p.x, p.y, '#ff3040', 20, 220, 0.6, 3);
+  if (p.hp > 0) curseHit(src);
   if (p.hp <= 0) {
     p.hp = 0; G.dying = 1.8; sfx('boom'); part(p.x, p.y, '#ffffff', 120, 400, 1.4, 5); part(p.x, p.y, '#ffd75e', 80, 300, 1.4, 4);
   }
@@ -627,7 +745,7 @@ function floatText(x, y, s, col, life = 1, size = 14) { G.texts.push({ x, y, s, 
 // ---------- ellenséges lövedékek ----------
 function eBullet(x, y, a, spd, o) {
   if (G.bullets.length > 1100) return;
-  G.bullets.push(Object.assign({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg: eDmg(), f: false, life: 7, col: RINGS[G.ring].col }, o || {}));
+  G.bullets.push(Object.assign({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg: eDmg(), f: false, life: 7, col: RG().col }, o || {}));
 }
 function radial(x, y, n, spd, off = 0, o) { for (let i = 0; i < n; i++) eBullet(x, y, off + i / n * TAU, spd, o); }
 
@@ -635,9 +753,9 @@ function radial(x, y, n, spd, off = 0, o) { for (let i = 0; i < n; i++) eBullet(
 function every(b, dt, int) { b.shotT -= dt; if (b.shotT <= 0) { b.shotT += int; return true; } return false; }
 const capCount = t => G.enemies.filter(e => !e.dead && !e.boss && (!t || e.type === t)).length;
 const ATK = {
-  radial(b, dt) { if (every(b, dt, 0.45)) { radial(b.x, b.y, 14 + G.ring * 2, 165 * b.sm, b.ac * 0.21); b.ac++; } return b.ac >= 3; },
+  radial(b, dt) { if (every(b, dt, 0.45)) { radial(b.x, b.y, 14 + G.lvl * 2, 165 * b.sm, b.ac * 0.21); b.ac++; } return b.ac >= 3; },
   spiral(b, dt) {
-    if (every(b, dt, 0.075)) { const arms = 2 + (G.ring > 2 ? 1 : 0); for (let k = 0; k < arms; k++) eBullet(b.x, b.y, b.spin + k * TAU / arms, 155 * b.sm); b.spin += 0.23; }
+    if (every(b, dt, 0.075)) { const arms = 2 + (G.lvl > 2 ? 1 : 0); for (let k = 0; k < arms; k++) eBullet(b.x, b.y, b.spin + k * TAU / arms, 155 * b.sm); b.spin += 0.23; }
     return b.at > 2.6;
   },
   aimed(b, dt) {
@@ -775,7 +893,7 @@ function updBoss(b, dt) {
     if (ph > b.phase) {
       b.phase = ph; b.inv = 1.6; b.atk = null; b.gap = 1.6; b.ghost = false; b.alpha = 1; b.tele = null; b.cs = undefined;
       G.bullets = G.bullets.filter(q => q.f); G.beams.length = 0; G.shake = 18; sfx('roar');
-      if (ph === 3) b.sm = 1 + G.ring * 0.04 + 0.25;
+      if (ph === 3) b.sm = 1 + G.lvl * 0.04 + 0.25;
       G.banner = { title: 'LUCIFER', sub: ph === 2 ? 'A Hajnalcsillag haragja' : 'A Bukott Fény utolsó lángja',
         line: ph === 2 ? '„Én vagyok a Fényhozó! Előttem a csillagok is meghajolnak!”' : '„Ha nem uralkodhatom a Mennyben, akkor semmi se maradjon!”', t: 0, dur: 3.2, col: '#c08bff' };
       part(b.x, b.y, '#c08bff', 120, 500, 1.2, 5);
@@ -797,7 +915,7 @@ function updBoss(b, dt) {
     b.at += dt;
     if (ATK[b.atk](b, dt)) {
       b.atk = null; b.tele = null; b.ghost = false; b.alpha = 1;
-      b.gap = Math.max(0.35, (b.phase === 3 ? 0.4 : 0.95 - G.ring * 0.05));
+      b.gap = Math.max(0.35, (b.phase === 3 ? 0.4 : 0.95 - G.lvl * 0.05));
     }
   }
 }
@@ -890,6 +1008,26 @@ function update(dt) {
   }
   room.pickups = room.pickups.filter(k => !k.gone);
 
+  // purgatórium: fegyverek és kapuk
+  if (G.hub && !G.dying) {
+    if (G.msgT > 0) G.msgT -= dt;
+    for (const pd of room.peds) if (Math.hypot(p.x - pd.x, p.y - pd.y) < 30) swapWeapon(pd.w);
+    for (const g of room.gates) {
+      const gp = { x: g.x, y: g.y + 12 }, d = dist(gp, p);
+      if (d > 32) continue;
+      const done = G.defeated.includes(g.ri), locked = g.ri === 6 && G.defeated.length < 6;
+      if (!done && !locked) { enterRing(g.ri); return; }
+      if (d > 0.1) { p.x = gp.x + (p.x - gp.x) / d * 32; p.y = gp.y + (p.y - gp.y) / d * 32; }
+      if (G.msgT <= 0) {
+        G.msgT = 1.6; sfx('block');
+        floatText(g.x, g.y - 70, done ? 'Ez a bűn már elbukott' : `${6 - G.defeated.length} lakat zárja még`, done ? '#cfd6e6' : '#c08bff', 1.4, 15);
+      }
+    }
+  }
+  for (const s of G.slashes) s.t += dt;
+  G.slashes = G.slashes.filter(s => s.t < 0.2);
+  updAmb(dt);
+
   // terem tisztítása
   if (!room.cleared && room.type === 'normal' && G.roomT > 0.8 && G.enemies.length === 0) {
     room.cleared = true; sfx('door');
@@ -916,11 +1054,9 @@ function update(dt) {
   if (G.novaFx) { G.novaFx.t += dt; if (G.novaFx.t > 0.6) G.novaFx = null; }
 }
 function nextRing() {
-  G.ring++;
-  if (G.ring > 6) { state = 'win'; return; }
-  G.parts.length = 0; G.texts.length = 0;
-  genFloor(); ringBanner(); sfx('holy');
-  G.p.hp = Math.min(G.p.maxHp, G.p.hp + 15);
+  if (!G.defeated.includes(G.ring)) G.defeated.push(G.ring);
+  G.p.hp = Math.min(G.p.maxHp, G.p.hp + 25);
+  enterHub(G.ring);
 }
 
 function updatePlayer(dt) {
@@ -928,6 +1064,8 @@ function updatePlayer(dt) {
   if (p.inv > 0) p.inv -= dt;
   if (p.dashCool > 0) p.dashCool -= dt;
   if (p.slow > 0) p.slow -= dt;
+  if (p.lustT > 0) p.lustT -= dt;
+  if (p.swing > 0) p.swing -= dt;
   if (p.regen) { p.regenT += dt; if (p.regenT > 3 / p.regen) { p.regenT = 0; p.hp = Math.min(p.maxHp, p.hp + 1); } }
   if (p.shield < p.shieldMax) { p.shieldT += dt; if (p.shieldT > 12) { p.shieldT = 0; p.shield++; sfx('block'); } }
 
@@ -940,6 +1078,20 @@ function updatePlayer(dt) {
     if (p.dashDmg) for (const e of G.enemies) if (!e.dead && !p.dashHit.includes(e) && dist(e, p) < e.r + p.r + 10) { p.dashHit.push(e); dmgEnemy(e, p.dmg * 2.5 * p.dashDmg, false); part(e.x, e.y, '#bfe9ff', 10, 200, 0.4, 3); }
   }
   if (G.charm > 0 && G.boss) { const a = angTo(p, G.boss); vx += Math.cos(a) * 120; vy += Math.sin(a) * 120; }
+  if (p.lunge > 0) { p.lunge -= dt; vx += Math.cos(p.lungeA) * 260; vy += Math.sin(p.lungeA) * 260; }
+  // a Kevélység aurája: a démonok magukhoz csábítják az angyalt
+  p.tempted = 0;
+  if (!G.hub && G.ring === 6 && p.dashT <= 0) {
+    let px = 0, py = 0;
+    for (const e of G.enemies) {
+      if (e.dead || e.spawn > 0 || e.ghost) continue;
+      const ar = e.boss ? 170 : 115, d = dist(e, p);
+      if (d < ar && d > e.r + p.r) { const k = (1 - d / ar) * (e.boss ? 120 : 170), a = angTo(p, e); px += Math.cos(a) * k; py += Math.sin(a) * k; p.tempted++; }
+    }
+    const pl = Math.hypot(px, py); if (pl > 190) { px *= 190 / pl; py *= 190 / pl; }
+    vx += px; vy += py;
+  }
+  if ((Math.abs(vx) + Math.abs(vy)) > 40 && Math.random() < 0.25) G.parts.push({ x: p.x + rand(-6, 6), y: p.y + rand(4, 12), vx: rand(-20, 20), vy: rand(10, 40), life: 0.5, max: 0.5, col: '#fff1c4', size: 2.2 });
   p.x += vx * dt; p.y += vy * dt;
   collideObst(p);
 
@@ -959,7 +1111,10 @@ function updatePlayer(dt) {
   const tm = touch.on && aim === null ? touchMoveDir() : null;
   p.face = aim !== null ? aim : tm ? Math.atan2(tm.y, tm.x) : touch.on ? p.face : Math.atan2(mouse.y - p.y, mouse.x - p.x);
   p.fireT = Math.max(0, p.fireT - dt);
-  if (aim !== null && p.fireT <= 0) { p.fireT = p.fireDelay; shoot(aim); }
+  if (aim !== null && p.fireT <= 0 && !(p.lustT > 0)) {
+    if (G.weapon === 'blade') { p.fireT = p.fireDelay * 1.9; slash(aim); }
+    else { p.fireT = p.fireDelay; shoot(aim); }
+  }
 
   // őrző gömbök
   if (p.orbs) {
@@ -985,6 +1140,9 @@ function updEnemy(e, dt) {
   }
   if (e.spawn > 0) { e.spawn -= dt; return; }
   const a = angTo(e, p), d = dist(e, p);
+  if (!G.hub && G.ring === 4 && !e.boss && !e.rage && e.hp < e.maxHp * 0.5) {
+    e.rage = true; e.spd *= 1.6; e.stT *= 0.6; floatText(e.x, e.y - e.r - 12, 'DÜH!', '#ff4a24', 0.8, 14); part(e.x, e.y, '#ff4a24', 12, 180, 0.4, 3);
+  }
   if (e.boss) updBoss(e, dt);
   else switch (e.type) {
     case 'imp': case 'mini': case 'fly': case 'splitter': {
@@ -995,18 +1153,18 @@ function updEnemy(e, dt) {
       let ma = a + Math.PI / 2 * e.side;
       if (d < 190) ma = a + Math.PI; else if (d > 320) ma = a;
       mv(e, ma, e.spd, dt); if (e.hitWall) e.side *= -1;
-      e.stT -= dt; if (e.stT <= 0) { e.stT = rand(1.4, 2); eBullet(e.x, e.y, a, 220 + G.ring * 10); }
+      e.stT -= dt; if (e.stT <= 0) { e.stT = rand(1.4, 2); eBullet(e.x, e.y, a, 220 + G.lvl * 10); }
       break;
     }
     case 'brute': {
       if (e.st === 0) { mv(e, a, e.spd, dt); e.stT -= dt; if (e.stT <= 0 && d < 450) { e.st = 1; e.stT = 0.55; e.ca = a; } }
       else if (e.st === 1) { e.stT -= dt; if (e.stT <= 0) { e.st = 2; e.stT = 0.6; } }
-      else { mv(e, e.ca, e.spd * 6.5, dt); e.stT -= dt; if (e.stT <= 0 || e.hitWall) { e.st = 0; e.stT = rand(2, 3.2); if (e.hitWall) { G.shake = Math.max(G.shake, 4); radial(e.x, e.y, 6 + G.ring, 140); } } }
+      else { mv(e, e.ca, e.spd * 6.5, dt); e.stT -= dt; if (e.stT <= 0 || e.hitWall) { e.st = 0; e.stT = rand(2, 3.2); if (e.hitWall) { G.shake = Math.max(G.shake, 4); radial(e.x, e.y, 6 + G.lvl, 140); } } }
       break;
     }
     case 'wisp': {
       mv(e, a + Math.PI / 2 * e.side + Math.sin(e.t * 1.3) * 0.8, e.spd, dt); if (e.hitWall) e.side *= -1;
-      e.stT -= dt; if (e.stT <= 0) { e.stT = rand(2, 2.6); radial(e.x, e.y, 8, 140 + G.ring * 8, rand(0, 1)); }
+      e.stT -= dt; if (e.stT <= 0) { e.stT = rand(2, 2.6); radial(e.x, e.y, 8, 140 + G.lvl * 8, rand(0, 1)); }
       break;
     }
     case 'turret': {
@@ -1021,7 +1179,7 @@ function updEnemy(e, dt) {
       e.stT -= dt;
       if (e.st === 0) { if (e.stT <= 0) { e.st = 1; e.stT = 0.4; e.ghost = true; } }
       else if (e.st === 1) { e.alpha = e.stT / 0.4; if (e.stT <= 0) { const ang = rand(0, TAU), dd = rand(150, 240); e.x = clamp(p.x + Math.cos(ang) * dd, L + 30, R - 30); e.y = clamp(p.y + Math.sin(ang) * dd, T + 30, B - 30); collideObst(e); e.st = 2; e.stT = 0.4; } }
-      else { e.alpha = 1 - e.stT / 0.4; if (e.stT <= 0) { e.alpha = 1; e.ghost = false; e.st = 0; e.stT = rand(1.3, 2); for (let i = -1; i <= 1; i++) eBullet(e.x, e.y, angTo(e, p) + i * 0.25, 210 + G.ring * 8); } }
+      else { e.alpha = 1 - e.stT / 0.4; if (e.stT <= 0) { e.alpha = 1; e.ghost = false; e.st = 0; e.stT = rand(1.3, 2); for (let i = -1; i <= 1; i++) eBullet(e.x, e.y, angTo(e, p) + i * 0.25, 210 + G.lvl * 8); } }
       break;
     }
     case 'shadow': {
@@ -1034,12 +1192,13 @@ function updEnemy(e, dt) {
   e.hitWall = false;
   if (!(e.boss && e.atk === 'charge')) collideObst(e);
   clampRoom(e);
-  if (!e.ghost && !G.dying && dist(e, p) < e.r + p.r - 3) hurtPlayer(cDmg() * (e.boss ? 1.4 : 1));
+  if (!e.ghost && !G.dying && dist(e, p) < e.r + p.r - 3) hurtPlayer(cDmg() * (e.boss ? 1.4 : 1), e);
 }
 
 function updateBullets(dt) {
   const p = G.p, obst = G.room.obst;
   for (const b of G.bullets) {
+    if (b.dead) continue;
     if (b.f && p.homing) {
       let best = null, bd = 340;
       for (const e of G.enemies) { if (e.dead || e.ghost || e.spawn > 0) continue; const d = dist(e, b); if (d < bd) { bd = d; best = e; } }
@@ -1089,12 +1248,14 @@ function updateBullets(dt) {
 // ---------- rajzolás ----------
 function buildRoomCanvas(room) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d'), rg = RINGS[G.ring];
+  const g = c.getContext('2d'), rg = RG();
   g.fillStyle = rg.wall; g.fillRect(0, 64, W, H - 64);
   g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 1;
   for (let y = 64; y < H; y += 16) for (let x = (y / 16 % 2) * 16 - 16; x < W; x += 32) { g.strokeRect(x + 0.5, y + 0.5, 32, 16); }
   g.fillStyle = 'rgba(255,255,255,0.04)'; for (let i = 0; i < 120; i++) g.fillRect(rand(0, W), rand(64, H), rand(4, 20), 2);
   g.fillStyle = rg.floor; g.fillRect(L, T, R - L, B - T);
+  const fl = g.createRadialGradient(CX, CY, 40, CX, CY, 520); fl.addColorStop(0, 'rgba(255,255,255,0.07)'); fl.addColorStop(1, 'rgba(0,0,0,0.25)');
+  g.fillStyle = fl; g.fillRect(L, T, R - L, B - T);
   for (let ty = 0; ty < 16; ty++) for (let tx = 0; tx < 28; tx++) {
     g.fillStyle = `rgba(255,255,255,${rand(0, 0.035)})`; g.fillRect(L + tx * 32, T + ty * 32, 32, 32);
     g.strokeStyle = 'rgba(0,0,0,0.3)'; g.strokeRect(L + tx * 32 + 0.5, T + ty * 32 + 0.5, 32, 32);
@@ -1109,6 +1270,7 @@ function buildRoomCanvas(room) {
     g.stroke(); g.shadowBlur = 0;
   }
   for (let i = 0; i < 40; i++) { g.fillStyle = hexA(rg.col, rand(0.04, 0.15)); g.beginPath(); g.arc(rand(L, R), rand(T, B), rand(1, 3), 0, TAU); g.fill(); }
+  decorate(g, room);
   const sg = (x0, y0, x1, y1) => { const gr = g.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, 'rgba(0,0,0,0.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); return gr; };
   g.fillStyle = sg(0, T, 0, T + 30); g.fillRect(L, T, R - L, 30);
   g.fillStyle = sg(L, 0, L + 24, 0); g.fillRect(L, T, 24, B - T);
@@ -1129,7 +1291,7 @@ function buildRoomCanvas(room) {
     g.strokeStyle = hexA(rg.col, 0.35); g.lineWidth = 1.5; g.strokeRect(o.x + 1, o.y + 1, o.w - 2, o.h - 2);
     g.strokeStyle = 'rgba(0,0,0,0.4)'; g.beginPath(); g.moveTo(o.x + 4, o.y + o.h * 0.6); g.lineTo(o.x + o.w * 0.5, o.y + o.h * 0.4); g.lineTo(o.x + o.w - 4, o.y + o.h * 0.7); g.stroke();
   }
-  if (room.type === 'start' && G.ring === 0) {
+  if (false) {
     g.fillStyle = 'rgba(255,255,255,0.22)'; g.font = `14px ${SANS}`; g.textAlign = 'center';
     g.fillText(touch.on ? 'Bal hüvelykujj: mozgás   •   Jobb hüvelykujj: lövés   •   KITÉRÉS és NOVA gomb' : 'WASD: mozgás   •   Bal egérgomb / nyilak: lövés   •   Space: kitérés   •   Q / jobb klikk: Szent Nova', CX, B - 40);
     g.fillText('Tisztítsd meg a termeket, keresd meg a gyűrű démonát (piros ajtó a térképen).', CX, B - 20);
@@ -1137,8 +1299,185 @@ function buildRoomCanvas(room) {
   return c;
 }
 
+function decorate(g, room) {
+  const blob = (x, y, rx, ry, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, rand(0, 3), 0, TAU); g.fill(); };
+  const ok = (x, y, m = 30) => !room.obst.some(o => x > o.x - m && x < o.x + o.w + m && y > o.y - m && y < o.y + o.h + m);
+  const spots = (n, f) => { for (let i = 0; i < n; i++) { const x = rand(L + 30, R - 30), y = rand(T + 30, B - 30); if (ok(x, y)) f(x, y); } };
+  if (room.type === 'hub') {
+    // fehér márvány mozaik, hétágú csillag, lépcsőfokok
+    g.save(); g.translate(CX, CY + 40);
+    for (let i = 0; i < 6; i++) { g.strokeStyle = `rgba(200,220,255,${0.05 + i * 0.015})`; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, 60 + i * 34, 0, TAU); g.stroke(); }
+    g.strokeStyle = 'rgba(220,235,255,0.22)'; g.lineWidth = 2; g.beginPath();
+    for (let i = 0; i <= 7; i++) { const a = -Math.PI / 2 + i * TAU * 3 / 7; i ? g.lineTo(Math.cos(a) * 150, Math.sin(a) * 150) : g.moveTo(Math.cos(a) * 150, Math.sin(a) * 150); }
+    g.stroke();
+    for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 + i * TAU / 7; g.fillStyle = hexA(RINGS[i].col, 0.25); g.beginPath(); g.arc(Math.cos(a) * 175, Math.sin(a) * 175, 7, 0, TAU); g.fill(); }
+    g.restore();
+    g.fillStyle = 'rgba(255,255,255,0.03)'; for (let i = 0; i < 4; i++) g.fillRect(L, B - 18 - i * 10, R - L, 2);
+    for (let i = 0; i < 26; i++) blob(rand(L, R), rand(T, B), rand(30, 80), rand(10, 25), 'rgba(200,220,255,0.025)');
+    return;
+  }
+  const ri = G.ring;
+  if (ri === 0) { // vágy örvénye
+    g.lineWidth = 2;
+    for (let i = 0; i < 14; i++) { g.strokeStyle = `rgba(255,120,190,${rand(0.05, 0.12)})`; const x = rand(L, R), y = rand(T, B), r = rand(30, 90); g.beginPath(); g.arc(x, y, r, rand(0, 3), rand(3.5, 6)); g.stroke(); }
+    spots(40, (x, y) => blob(x, y, rand(3, 6), rand(2, 3), `rgba(255,${randi(60, 140)},${randi(140, 200)},0.45)`));
+  } else if (ri === 1) { // nyálka és csontok
+    spots(10, (x, y) => { blob(x, y, rand(30, 70), rand(14, 30), 'rgba(140,170,30,0.18)'); blob(x + 5, y - 3, rand(10, 25), rand(5, 12), 'rgba(200,230,80,0.12)'); });
+    spots(14, (x, y) => { g.strokeStyle = 'rgba(230,220,190,0.35)'; g.lineWidth = 3; g.beginPath(); const a = rand(0, 3); g.moveTo(x - Math.cos(a) * 9, y - Math.sin(a) * 9); g.lineTo(x + Math.cos(a) * 9, y + Math.sin(a) * 9); g.stroke(); });
+  } else if (ri === 2) { // szétszórt arany
+    spots(70, (x, y) => { blob(x, y, rand(3, 5), rand(2, 3), `rgba(255,${randi(190, 225)},60,${rand(0.35, 0.7)})`); });
+    for (const [x, y] of [[L + 40, T + 40], [R - 40, T + 40], [L + 40, B - 40], [R - 40, B - 40]]) for (let i = 0; i < 18; i++) blob(x + rand(-22, 22), y + rand(-14, 14), 5, 3, `rgba(255,${randi(180, 220)},50,0.6)`);
+  } else if (ri === 3) { // mocsár
+    spots(9, (x, y) => { blob(x, y, rand(40, 90), rand(18, 34), 'rgba(20,35,55,0.55)'); g.strokeStyle = 'rgba(140,170,220,0.12)'; g.lineWidth = 1; g.beginPath(); g.ellipse(x, y, 20, 8, 0, 0, TAU); g.stroke(); });
+    spots(30, (x, y) => blob(x, y, rand(4, 10), rand(2, 4), 'rgba(70,110,80,0.25)'));
+  } else if (ri === 4) { // izzó lávarepedések
+    g.shadowColor = '#ff6a1a'; g.shadowBlur = 12; g.lineCap = 'round';
+    for (let i = 0; i < 12; i++) {
+      let x = rand(L, R), y = rand(T, B); g.strokeStyle = `rgba(255,${randi(90, 150)},30,${rand(0.4, 0.7)})`; g.lineWidth = rand(1.5, 3.5);
+      g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 7; k++) { x += rand(-34, 34); y += rand(-34, 34); g.lineTo(clamp(x, L, R), clamp(y, T, B)); } g.stroke();
+    }
+    g.shadowBlur = 0;
+  } else if (ri === 5) { // zöld kristályok
+    spots(12, (x, y) => {
+      for (let k = 0; k < 4; k++) {
+        const a = -Math.PI / 2 + rand(-0.7, 0.7), h = rand(12, 26), w = rand(4, 7), bx = x + rand(-8, 8);
+        g.fillStyle = `rgba(${randi(40, 90)},${randi(200, 240)},${randi(120, 160)},0.35)`; g.beginPath();
+        g.moveTo(bx - w, y); g.lineTo(bx + Math.cos(a) * h, y + Math.sin(a) * h); g.lineTo(bx + w, y); g.closePath(); g.fill();
+      }
+    });
+  } else if (ri === 6) { // jég és dér
+    for (let i = 0; i < 14; i++) blob(rand(L, R), rand(T, B), rand(40, 110), rand(20, 50), 'rgba(200,190,255,0.05)');
+    g.strokeStyle = 'rgba(230,220,255,0.25)'; g.lineWidth = 1;
+    for (let i = 0; i < 16; i++) { let x = rand(L, R), y = rand(T, B); g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += rand(-40, 40); y += rand(-40, 40); g.lineTo(x, y); } g.stroke(); }
+  }
+}
+
+const TORCH_X = [200, 340, 620, 760];
+function drawTorches() {
+  const col = G.hub ? '#9fd0ff' : RG().col;
+  for (const x of TORCH_X) {
+    const y = 80, f = 1 + Math.sin(gt * 13 + x) * 0.12 + Math.sin(gt * 7.3 + x * 2) * 0.08;
+    ctx.fillStyle = '#15121a'; ctx.fillRect(x - 6, y + 2, 12, 10); ctx.fillStyle = '#3a3340'; ctx.fillRect(x - 8, y, 16, 4);
+    ctx.globalCompositeOperation = 'lighter';
+    const gr = ctx.createRadialGradient(x, y - 4, 1, x, y - 4, 26 * f); gr.addColorStop(0, hexA(col, 0.7)); gr.addColorStop(1, hexA(col, 0));
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y - 4, 26 * f, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#fff6dc'; ctx.beginPath(); ctx.ellipse(x, y - 5, 3.5, 7 * f, 0, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+function drawGate(g) {
+  const ri = g.ri, rg = RINGS[ri], big = ri === 6, done = G.defeated.includes(ri), locked = big && G.defeated.length < 6;
+  const w = big ? 38 : 28, top = g.y - (big ? 40 : 28), base = g.y + 28;
+  const arch = r => { ctx.beginPath(); ctx.moveTo(g.x - r, base); ctx.lineTo(g.x - r, top); ctx.arc(g.x, top, r, Math.PI, 0); ctx.lineTo(g.x + r, base); ctx.closePath(); };
+  if (!done) {
+    const fg = ctx.createRadialGradient(g.x, base, 4, g.x, base, 80); fg.addColorStop(0, hexA(rg.col, locked ? 0.15 : 0.4)); fg.addColorStop(1, hexA(rg.col, 0));
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.ellipse(g.x, base, 80, 26, 0, 0, TAU); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(g.x, base + 2, w + 16, 8, 0, 0, TAU); ctx.fill();
+  const sg = ctx.createLinearGradient(g.x - w - 10, 0, g.x + w + 10, 0); sg.addColorStop(0, '#363c4d'); sg.addColorStop(0.5, done ? '#5b6170' : '#8a93a8'); sg.addColorStop(1, '#2b3040');
+  ctx.fillStyle = sg; arch(w + 9); ctx.fill();
+  ctx.strokeStyle = done ? 'rgba(0,0,0,0.4)' : hexA(rg.col, 0.6); ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.save(); arch(w); ctx.clip();
+  if (done) {
+    ctx.fillStyle = '#121419'; ctx.fillRect(g.x - w, top - w, w * 2, base - top + w);
+    ctx.strokeStyle = 'rgba(255,230,160,0.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(g.x, top - 12); ctx.lineTo(g.x, base - 8); ctx.moveTo(g.x - 12, top + 4); ctx.lineTo(g.x + 12, top + 4); ctx.stroke();
+  } else {
+    const ig = ctx.createRadialGradient(g.x, g.y, 2, g.x, g.y, w * 2.2);
+    ig.addColorStop(0, locked ? '#2a1c40' : '#ffffff'); ig.addColorStop(0.3, hexA(rg.col, locked ? 0.35 : 0.9)); ig.addColorStop(1, '#05030a');
+    ctx.fillStyle = ig; ctx.fillRect(g.x - w, top - w, w * 2, base - top + w);
+    ctx.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 3; k++) {
+      ctx.strokeStyle = hexA(rg.col, locked ? 0.15 : 0.45); ctx.lineWidth = 2;
+      const r0 = 8 + k * 9, sp = gt * (k % 2 ? 1.8 : -1.4);
+      ctx.beginPath(); ctx.ellipse(g.x, g.y - 4, r0, r0 * 1.4, 0, sp, sp + 4.2); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  ctx.restore();
+  if (locked) {
+    ctx.strokeStyle = '#4a4458'; ctx.lineWidth = 4; ctx.setLineDash([7, 4]);
+    ctx.beginPath(); ctx.moveTo(g.x - w, top); ctx.lineTo(g.x + w, base - 6); ctx.moveTo(g.x + w, top); ctx.lineTo(g.x - w, base - 6); ctx.stroke(); ctx.setLineDash([]);
+    for (let k = 0; k < 6; k++) {
+      if (G.defeated.includes(k)) continue;
+      const q = lockPos(k), c = RINGS[k].col, bob = Math.sin(gt * 2 + k) * 1.5;
+      ctx.strokeStyle = '#c8c8d0'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(q.x, q.y - 4 + bob, 5, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 10; ctx.fillRect(q.x - 7, q.y - 4 + bob, 14, 11); ctx.shadowBlur = 0;
+      ctx.fillStyle = '#000'; ctx.fillRect(q.x - 1, q.y + bob, 2, 4);
+    }
+  }
+  ctx.textAlign = 'center';
+  ctx.font = `700 ${big ? 15 : 13}px ${SERIF}`; ctx.fillStyle = done ? '#7a8090' : rg.col;
+  ctx.fillText(ROMAN[ri], g.x, top - w - (big ? 30 : 14));
+  ctx.font = `600 12px ${SERIF}`; ctx.fillStyle = done ? '#6a7080' : '#e8e2f0';
+  ctx.fillText(done ? 'Megtisztítva' : rg.name, g.x, base + 18);
+}
+
+function drawPedestal(pd) {
+  const on = G.weapon === pd.w, y = pd.y, f = Math.sin(gt * 2 + pd.x) * 4;
+  if (on) {
+    const gr = ctx.createRadialGradient(pd.x, y, 2, pd.x, y, 60); gr.addColorStop(0, 'rgba(255,225,140,0.45)'); gr.addColorStop(1, 'rgba(255,225,140,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(pd.x, y, 60, 0, TAU); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.ellipse(pd.x, y + 16, 30, 8, 0, 0, TAU); ctx.fill();
+  const sg = ctx.createLinearGradient(pd.x - 24, 0, pd.x + 24, 0); sg.addColorStop(0, '#4a5163'); sg.addColorStop(0.5, '#9aa3b8'); sg.addColorStop(1, '#3c4252');
+  ctx.fillStyle = sg; ctx.fillRect(pd.x - 18, y - 4, 36, 20); ctx.fillRect(pd.x - 24, y - 10, 48, 8);
+  ctx.save(); ctx.translate(pd.x, y - 34 + f);
+  ctx.shadowColor = '#ffe9a8'; ctx.shadowBlur = 18;
+  if (pd.w === 'bow') {
+    ctx.fillStyle = '#fff6c8'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,233,168,0.8)'; ctx.lineWidth = 2;
+    for (let i = 0; i < 8; i++) { const a = gt + i * TAU / 8; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 13, Math.sin(a) * 13); ctx.lineTo(Math.cos(a) * 20, Math.sin(a) * 20); ctx.stroke(); }
+  } else {
+    ctx.rotate(-Math.PI / 4 + Math.sin(gt * 1.5) * 0.1); drawBlade(0, 0, 1.25);
+  }
+  ctx.restore(); ctx.shadowBlur = 0;
+  ctx.textAlign = 'center'; ctx.font = `700 13px ${SERIF}`; ctx.fillStyle = on ? '#ffe27a' : '#c8cfe0';
+  ctx.fillText(WEAPONS[pd.w].n, pd.x, y + 36);
+  ctx.font = `10px ${SANS}`; ctx.fillStyle = on ? '#fff2c0' : '#8890a4';
+  ctx.fillText(on ? 'FELSZERELVE' : 'lépj rá a cseréhez', pd.x, y + 50);
+}
+function drawBlade(x, y, sc) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+  const bg = ctx.createLinearGradient(0, -30, 0, 0); bg.addColorStop(0, '#ffffff'); bg.addColorStop(1, '#ffe08a');
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(4, -22); ctx.lineTo(3, 0); ctx.lineTo(-3, 0); ctx.lineTo(-4, -22); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#d9a63a'; ctx.fillRect(-9, 0, 18, 3); ctx.fillStyle = '#8a6a2a'; ctx.fillRect(-2, 3, 4, 8);
+  ctx.fillStyle = '#fff2b0'; ctx.beginPath(); ctx.arc(0, 12, 2.5, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+function drawHub() {
+  const room = G.hubRoom, p = G.p;
+  // fénysugarak felülről
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 5; i++) {
+    const x = 160 + i * 160 + Math.sin(gt * 0.3 + i) * 20, a = 0.035 + Math.sin(gt * 0.7 + i * 1.7) * 0.02;
+    const lg = ctx.createLinearGradient(0, T, 0, B); lg.addColorStop(0, `rgba(220,235,255,${a})`); lg.addColorStop(1, 'rgba(220,235,255,0)');
+    ctx.fillStyle = lg; ctx.beginPath(); ctx.moveTo(x - 20, T); ctx.lineTo(x + 20, T); ctx.lineTo(x + 90, B); ctx.lineTo(x - 50, B); ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  for (const g of room.gates) drawGate(g);
+  for (const pd of room.peds) drawPedestal(pd);
+  // ismertető: a legközelebbi kapu vagy útmutató
+  let near = null, nd = 95;
+  for (const g of room.gates) { const d = Math.hypot(p.x - g.x, p.y - g.y - 12); if (d < nd) { nd = d; near = g; } }
+  ctx.textAlign = 'center';
+  if (near) {
+    const ri = near.ri, rg = RINGS[ri], done = G.defeated.includes(ri), locked = ri === 6 && G.defeated.length < 6;
+    ctx.fillStyle = 'rgba(8,8,14,0.78)'; ctx.fillRect(CX - 228, CY - 10, 456, 74); ctx.strokeStyle = hexA(rg.col, 0.6); ctx.lineWidth = 1.5; ctx.strokeRect(CX - 228 + 0.5, CY - 9.5, 455, 73);
+    ctx.font = `700 17px ${SERIF}`; ctx.fillStyle = rg.col; ctx.fillText(`${ROMAN[ri]}. ${rg.name} — ${BOSSES[ri].name}`, CX, CY + 14);
+    ctx.font = `13px ${SANS}`; ctx.fillStyle = '#ddd';
+    ctx.fillText(done ? 'Ez a bűn már elbukott, a kapu lepecsételve.' : locked ? `Lakatok zárják: győzd le a többi főbűnt (még ${6 - G.defeated.length}).` : 'Lépj be a kapun az alászálláshoz.', CX, CY + 34);
+    ctx.fillStyle = '#b8b0c8'; ctx.font = `12px ${SANS}`; ctx.fillText(CURSE[ri], CX, CY + 53);
+  } else {
+    ctx.font = `13px ${SANS}`; ctx.fillStyle = 'rgba(220,230,255,0.55)';
+    ctx.fillText(touch.on ? 'Bal hüvelykujj: mozgás  •  Jobb hüvelykujj: támadás  •  FEGYVER gomb: csere' : 'WASD: mozgás  •  Egér / nyilak: támadás  •  Space: kitérés  •  X: fegyvercsere', CX, CY + 20);
+    ctx.fillText('Lépj be egy kapun. A Kevélység kapuját a másik hat bűn legyőzése nyitja.', CX, CY + 42);
+  }
+}
+
 function drawDoors() {
-  const r = G.room, rg = RINGS[G.ring];
+  const r = G.room, rg = RG();
   for (const [dx, dy, k] of DIRS) {
     if (!r.doors[k]) continue;
     const nb = G.rooms[(r.x + dx) + ',' + (r.y + dy)], open = r.cleared;
@@ -1164,7 +1503,7 @@ function drawDoors() {
   }
 }
 
-function drawAngel(x, y, face, t, dark, alpha, scale = 1) {
+function drawAngel(x, y, face, t, dark, alpha, scale = 1, weapon = null, swing = 0) {
   ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale); ctx.globalAlpha = alpha;
   const flap = Math.sin(t * 9) * 0.22;
   // aura
@@ -1199,14 +1538,20 @@ function drawAngel(x, y, face, t, dark, alpha, scale = 1) {
   // glória
   ctx.strokeStyle = dark ? '#b04fff' : '#ffd75e'; ctx.lineWidth = 2.5; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 12;
   ctx.beginPath(); ctx.ellipse(0, -25, 9, 3.2, 0, 0, TAU); ctx.stroke(); ctx.shadowBlur = 0;
-  // fénygömb (célzás)
-  ctx.fillStyle = dark ? '#b04fff' : '#fff6c8'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 10;
-  ctx.beginPath(); ctx.arc(Math.cos(face) * 20, Math.sin(face) * 20 - 2, 3, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+  if (weapon === 'blade') {
+    // égi penge: suhintáskor végigsöpör az íven
+    const k = swing > 0 ? 1 - swing / 0.2 : 0.5, ba = face + (k - 0.5) * 2.2;
+    ctx.save(); ctx.rotate(ba + Math.PI / 2); ctx.shadowColor = '#ffe9a8'; ctx.shadowBlur = 12; drawBlade(0, -12, 0.95); ctx.restore(); ctx.shadowBlur = 0;
+  } else {
+    // fénygömb (célzás)
+    ctx.fillStyle = dark ? '#b04fff' : '#fff6c8'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(Math.cos(face) * 20, Math.sin(face) * 20 - 2, 3, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+  }
   ctx.restore();
 }
 
 function drawEnemy(e) {
-  const rg = RINGS[G.ring], col = rg.col, fl = e.flash > 0;
+  const rg = RG(), col = rg.col, fl = e.flash > 0;
   ctx.save(); ctx.translate(e.x, e.y);
   if (e.spawn > 0) {
     const k = 1 - e.spawn / 0.7;
@@ -1216,6 +1561,16 @@ function drawEnemy(e) {
   }
   ctx.globalAlpha *= e.alpha;
   const a = angTo(e, G.p), r = e.r;
+  if (!G.hub && G.ring === 6 && e.spawn <= 0) { // csábító aura
+    const ar = 115, pl = 1 + Math.sin(gt * 3 + e.spin) * 0.05;
+    const ag = ctx.createRadialGradient(0, 0, r, 0, 0, ar * pl); ag.addColorStop(0, 'rgba(255,170,230,0.22)'); ag.addColorStop(1, 'rgba(192,139,255,0)');
+    ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(0, 0, ar * pl, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,190,240,0.35)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 8]); ctx.lineDashOffset = -gt * 30;
+    ctx.beginPath(); ctx.arc(0, 0, ar * pl, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    const d = dist(e, G.p);
+    if (d < ar) { ctx.strokeStyle = `rgba(255,150,220,${0.5 * (1 - d / ar) + 0.15})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(G.p.x - e.x, G.p.y - e.y); ctx.stroke(); }
+  }
+  if (e.rage) { const rg2 = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 2); rg2.addColorStop(0, 'rgba(255,60,20,0.5)'); rg2.addColorStop(1, 'rgba(255,60,20,0)'); ctx.fillStyle = rg2; ctx.beginPath(); ctx.arc(0, 0, r * 2, 0, TAU); ctx.fill(); }
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, r * 0.8, r, r * 0.35, 0, 0, TAU); ctx.fill();
   const body = fl ? '#ffffff' : rg.body;
   const gr = ctx.createRadialGradient(-r * 0.3, -r * 0.4, 1, 0, 0, r * 1.2);
@@ -1278,6 +1633,7 @@ function drawEnemy(e) {
     case 'boss': ctx.restore(); drawBoss(e); return;
   }
   if (e.burn > 0) { ctx.globalAlpha = 0.5; ctx.fillStyle = '#ff9a2a'; ctx.beginPath(); ctx.arc(0, -r - 4, 3 + Math.sin(gt * 20), 0, TAU); ctx.fill(); }
+  if (e.loot) { ctx.globalAlpha = 1; ctx.textAlign = 'center'; ctx.font = `bold 12px ${SANS}`; ctx.fillStyle = '#000'; ctx.fillText(`◈${e.loot}`, 1, -r - 15); ctx.fillStyle = '#ffd700'; ctx.fillText(`◈${e.loot}`, 0, -r - 16); }
   ctx.restore();
   if (e.hp < e.maxHp && !e.boss) {
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(e.x - 16, e.y - e.r - 12, 32, 4);
@@ -1286,7 +1642,7 @@ function drawEnemy(e) {
 }
 
 function drawBoss(b) {
-  const rg = RINGS[G.ring], col = rg.col, r = b.r, fl = b.flash > 0, a = angTo(b, G.p);
+  const rg = RG(), col = rg.col, r = b.r, fl = b.flash > 0, a = angTo(b, G.p);
   if (b.tele != null) {
     ctx.strokeStyle = 'rgba(255,40,40,0.35)'; ctx.lineWidth = r * 1.8;
     ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + Math.cos(b.tele) * 900, b.y + Math.sin(b.tele) * 900); ctx.stroke();
@@ -1358,6 +1714,7 @@ function drawBoss(b) {
 
 function drawRoomStuff() {
   const room = G.room;
+  if (room.type === 'hub') drawHub();
   if (room.type === 'treasure') {
     const y = CY + Math.sin(gt * 2) * 4;
     ctx.fillStyle = '#2a2016'; ctx.fillRect(CX - 26, CY + 6, 52, 22); ctx.fillStyle = '#4a3a22'; ctx.fillRect(CX - 30, CY + 2, 60, 8);
@@ -1396,7 +1753,7 @@ function drawRoomStuff() {
     const gr = ctx.createRadialGradient(pt.x, pt.y, 2, pt.x, pt.y, 50 * k); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,220,150,0)');
     ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(pt.x, pt.y, 50 * k, 0, TAU); ctx.fill();
     ctx.fillStyle = '#fff2c8'; ctx.font = `14px ${SERIF}`; ctx.textAlign = 'center';
-    ctx.fillText(G.ring < 6 ? `Alászállás a(z) ${ROMAN[G.ring + 1]}. gyűrűbe` : '', pt.x, pt.y + 80);
+    ctx.fillText('Vissza a Purgatóriumba', pt.x, pt.y + 80);
   }
 }
 
@@ -1404,17 +1761,19 @@ function drawGame() {
   const p = G.p, room = G.room, sh = G.shake;
   ctx.save(); ctx.translate(rand(-sh, sh), rand(-sh, sh));
   ctx.drawImage(room.cache, 0, 0, W, H);
+  drawTorches();
   drawDoors();
   drawRoomStuff();
   // veszélyzónák
   for (const h of G.hazards) {
     if (h.warn > 0) {
-      ctx.strokeStyle = h.type === 'slow' ? 'rgba(150,180,230,0.7)' : 'rgba(255,120,40,0.8)'; ctx.setLineDash([8, 6]); ctx.lineWidth = 2;
+      ctx.strokeStyle = h.bile ? 'rgba(180,212,58,0.7)' : h.type === 'slow' ? 'rgba(150,180,230,0.7)' : 'rgba(255,120,40,0.8)'; ctx.setLineDash([8, 6]); ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(h.x, h.y, h.r * (1 - h.warn * 0.3), 0, TAU); ctx.stroke(); ctx.setLineDash([]);
     } else {
       const al = Math.min(1, h.life);
       const gr = ctx.createRadialGradient(h.x, h.y, 4, h.x, h.y, h.r);
-      if (h.type === 'slow') { gr.addColorStop(0, `rgba(90,110,150,${0.55 * al})`); gr.addColorStop(1, `rgba(60,80,120,${0.15 * al})`); }
+      if (h.bile) { gr.addColorStop(0, `rgba(150,180,40,${0.55 * al})`); gr.addColorStop(1, `rgba(90,110,20,${0.12 * al})`); }
+      else if (h.type === 'slow') { gr.addColorStop(0, `rgba(90,110,150,${0.55 * al})`); gr.addColorStop(1, `rgba(60,80,120,${0.15 * al})`); }
       else { gr.addColorStop(0, `rgba(255,170,40,${0.6 * al})`); gr.addColorStop(1, `rgba(200,40,10,${0.2 * al})`); }
       ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, TAU); ctx.fill();
     }
@@ -1440,15 +1799,23 @@ function drawGame() {
   // játékos
   if (!(G.dying > 0)) {
     const blink = p.inv > 0 && Math.floor(gt * 20) % 2 === 0;
-    drawAngel(p.x, p.y, p.face, p.t, false, blink ? 0.35 : 1);
+    drawAngel(p.x, p.y, p.face, p.t, false, blink ? 0.35 : 1, 1, G.weapon, p.swing);
+    if (p.lustT > 0) { ctx.fillStyle = '#ff7ac0'; ctx.font = `14px ${SANS}`; ctx.textAlign = 'center'; for (let i = 0; i < 3; i++) { const a = gt * 3 + i * TAU / 3; ctx.fillText('♥', p.x + Math.cos(a) * 22, p.y - 30 + Math.sin(a) * 6); } }
     if (p.shield > 0) { ctx.strokeStyle = `rgba(143,232,255,${0.5 + Math.sin(gt * 4) * 0.2})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 26, 0, TAU); ctx.stroke(); }
     for (let i = 0; i < p.orbs; i++) {
       const a = G.orbA + i * TAU / p.orbs; ctx.fillStyle = '#fff6c8'; ctx.shadowColor = '#ffd75e'; ctx.shadowBlur = 14;
       ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * 48, p.y + Math.sin(a) * 48, 7, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
     }
   }
+  drawLighting();
+  drawAmb();
   // lövedékek és részecskék (additív)
   ctx.globalCompositeOperation = 'lighter';
+  for (const sl of G.slashes) {
+    const k = sl.t / 0.2, al = 1 - k, r0 = sl.reach * (0.35 + 0.15 * k), r1 = sl.reach * (0.95 + 0.1 * k), a0 = sl.a - sl.half, a1 = sl.a + sl.half;
+    const sg = ctx.createRadialGradient(p.x, p.y, r0, p.x, p.y, r1); sg.addColorStop(0, 'rgba(255,240,190,0)'); sg.addColorStop(0.75, `rgba(255,236,170,${0.55 * al})`); sg.addColorStop(1, `rgba(255,255,255,${0.9 * al})`);
+    ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(p.x, p.y, r1, a0, a1); ctx.arc(p.x, p.y, r0, a1, a0, true); ctx.closePath(); ctx.fill();
+  }
   for (const b of G.bullets) {
     if (b.dark) { ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = '#000'; ctx.strokeStyle = '#b04fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill(); ctx.stroke(); ctx.globalCompositeOperation = 'lighter'; continue; }
     const c = b.f ? (b.cr ? '#fff7a0' : '#ffe9a8') : b.col;
@@ -1484,12 +1851,8 @@ function drawGame() {
     ctx.fillStyle = '#000'; ctx.fillText(t.s, t.x + 1, t.y + 1); ctx.fillStyle = t.col; ctx.fillText(t.s, t.x, t.y);
   }
   ctx.globalAlpha = 1;
-  // fény / sötétség
-  const dark = G.ring === 3 ? 0.7 : 0.55;
-  const lg = ctx.createRadialGradient(p.x, p.y, 110, p.x, p.y, 620);
-  lg.addColorStop(0, 'rgba(0,0,0,0)'); lg.addColorStop(1, `rgba(0,0,0,${dark})`);
-  ctx.fillStyle = lg; ctx.fillRect(0, 64, W, H - 64);
   ctx.restore();
+  ctx.drawImage(VIG, 0, 64, W, H - 64);
 
   if (G.hurtFx > 0) {
     const hg = ctx.createRadialGradient(CX, CY, 200, CX, CY, 600); hg.addColorStop(0, 'rgba(255,0,0,0)'); hg.addColorStop(1, `rgba(255,0,0,${G.hurtFx})`);
@@ -1500,14 +1863,84 @@ function drawGame() {
   if (G.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${G.fade})`; ctx.fillRect(0, 64, W, H - 64); }
 }
 
+// ---------- fények, köd, hangulati részecskék ----------
+const LM = document.createElement('canvas'); LM.width = W / 2; LM.height = H / 2;
+const lctx = LM.getContext('2d');
+const VIG = (() => {
+  const c = document.createElement('canvas'); c.width = W; c.height = H - 64; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(W / 2, (H - 64) / 2, 220, W / 2, (H - 64) / 2, 640); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.6)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H - 64); return c;
+})();
+function light(x, y, r, a) {
+  const g = lctx.createRadialGradient(x / 2, y / 2, 0, x / 2, y / 2, r / 2);
+  g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+  lctx.fillStyle = g; lctx.fillRect(x / 2 - r / 2, y / 2 - r / 2, r, r);
+}
+function drawLighting() {
+  const p = G.p, ri = G.ring;
+  const dark = G.hub ? 0.32 : ri === 3 ? 0.84 : ri === 6 ? 0.6 : 0.66;
+  lctx.globalCompositeOperation = 'source-over'; lctx.clearRect(0, 0, LM.width, LM.height);
+  lctx.fillStyle = `rgba(0,0,0,${dark})`; lctx.fillRect(0, 0, LM.width, LM.height);
+  lctx.globalCompositeOperation = 'destination-out';
+  if (!(G.dying > 0)) light(p.x, p.y, !G.hub && ri === 3 ? 330 : 470, 1);
+  for (const x of TORCH_X) light(x, 96, 230, 0.75);
+  let n = 0;
+  for (const b of G.bullets) { if (++n > 50) break; light(b.x, b.y, b.f ? 80 : 54, b.f ? 0.55 : 0.4); }
+  for (const e of G.enemies) if (e.boss) light(e.x, e.y, 300, 0.75); else if (e.type === 'wisp' || e.rage) light(e.x, e.y, 110, 0.5);
+  for (const h of G.hazards) if (h.type === 'burn' && h.warn <= 0) light(h.x, h.y, h.r * 2.6, 0.7);
+  if (G.portal && G.portal.room === G.room) light(G.portal.x, G.portal.y, 300, 0.95);
+  if (G.room.type === 'treasure' && !G.room.taken) light(CX, CY, 240, 0.8);
+  if (G.room.type === 'shop') for (const it of G.room.items) if (!it.sold) light(it.x, it.y, 110, 0.6);
+  if (G.hub) { for (const g of G.hubRoom.gates) light(g.x, g.y, 200, 0.75); for (const pd of G.hubRoom.peds) light(pd.x, pd.y - 20, 150, 0.7); }
+  if (G.slashes.length) light(p.x, p.y, 280, 0.6);
+  if (G.novaFx) light(p.x, p.y, 120 + 800 * G.novaFx.t / 0.6, 1);
+  lctx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(LM, 0, 0, W, H);
+}
+// gyűrűnként más légkör: szirmok, buborékok, aranypor, köd, parázs, zöld fény, hó
+const AMB = {
+  hub: { n: 40, c: ['#cfe3ff', '#ffe9b0'], f: () => ({ x: rand(L, R), y: B + 5, vx: rand(-6, 6), vy: rand(-28, -12), s: rand(1.2, 2.6) }) },
+  0: { n: 45, c: ['#ff7ac0', '#ffb3dc'], f: () => ({ x: L - 5, y: rand(T, B), vx: rand(40, 90), vy: rand(-15, 15), s: rand(2, 3.5), petal: 1 }) },
+  1: { n: 35, c: ['#b8d43a', '#e0f080'], f: () => ({ x: rand(L, R), y: B + 5, vx: rand(-5, 5), vy: rand(-40, -15), s: rand(2, 5), ring: 1 }) },
+  2: { n: 50, c: ['#ffd700', '#fff2a0'], f: () => ({ x: rand(L, R), y: T - 5, vx: rand(-8, 8), vy: rand(15, 40), s: rand(1, 2.4), tw: 1 }) },
+  3: { n: 12, c: ['#8fb0e0'], f: () => ({ x: L - 80, y: rand(T, B), vx: rand(10, 25), vy: rand(-3, 3), s: rand(60, 120), fog: 1 }) },
+  4: { n: 60, c: ['#ff5a24', '#ffb04a', '#ffd75e'], f: () => ({ x: rand(L, R), y: B + 5, vx: rand(-15, 15), vy: rand(-90, -40), s: rand(1.5, 3) }) },
+  5: { n: 40, c: ['#3ddc84', '#a0ffcc'], f: () => ({ x: rand(L, R), y: rand(T, B), vx: rand(-12, 12), vy: rand(-12, 12), s: rand(1.5, 3), tw: 1 }) },
+  6: { n: 55, c: ['#ffffff', '#d8c8ff'], f: () => ({ x: rand(L, R), y: T - 5, vx: rand(-20, 5), vy: rand(20, 50), s: rand(1.2, 2.8) }) },
+};
+function updAmb(dt) {
+  const cfg = AMB[G.hub ? 'hub' : G.ring];
+  if (G.amb.length < cfg.n && Math.random() < 0.5) { const q = cfg.f(); q.c = choice(cfg.c); q.l = q.fog ? rand(30, 50) : rand(5, 12); q.m = q.l; G.amb.push(q); }
+  for (const q of G.amb) { q.x += (q.vx + Math.sin(gt + q.y * 0.03) * 8) * dt; q.y += q.vy * dt; q.l -= dt; }
+  G.amb = G.amb.filter(q => q.l > 0 && q.x < R + 150 && q.y > T - 20 && q.y < B + 20);
+}
+function drawAmb() {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const q of G.amb) {
+    const k = Math.min(1, q.l / 1.5, (q.m - q.l) / 1.5);
+    if (q.fog) {
+      const g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.s); g.addColorStop(0, `rgba(120,150,200,${0.07 * k})`); g.addColorStop(1, 'rgba(120,150,200,0)');
+      ctx.fillStyle = g; ctx.fillRect(q.x - q.s, q.y - q.s, q.s * 2, q.s * 2); continue;
+    }
+    ctx.globalAlpha = k * (q.tw ? 0.4 + 0.5 * Math.abs(Math.sin(gt * 4 + q.x)) : 0.7);
+    if (q.ring) { ctx.strokeStyle = q.c; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(q.x, q.y, q.s, 0, TAU); ctx.stroke(); }
+    else if (q.petal) { ctx.fillStyle = q.c; ctx.beginPath(); ctx.ellipse(q.x, q.y, q.s * 1.6, q.s * 0.8, gt * 2 + q.y, 0, TAU); ctx.fill(); }
+    else { ctx.fillStyle = q.c; ctx.fillRect(q.x - q.s / 2, q.y - q.s / 2, q.s, q.s); }
+  }
+  ctx.restore();
+}
+
 function drawBanner(bn) {
   const k = Math.min(1, bn.t / 0.6, (bn.dur - bn.t) / 0.6);
   ctx.save(); ctx.globalAlpha = Math.max(0, k); ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 150, W, 120);
+  const bh = bn.curse ? 150 : 120, bgr = ctx.createLinearGradient(0, 150, 0, 150 + bh);
+  bgr.addColorStop(0, 'rgba(0,0,0,0)'); bgr.addColorStop(0.2, 'rgba(0,0,0,0.65)'); bgr.addColorStop(0.8, 'rgba(0,0,0,0.65)'); bgr.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = bgr; ctx.fillRect(0, 150, W, bh);
   ctx.font = `900 40px ${SERIF}`; ctx.fillStyle = '#000'; ctx.fillText(bn.title, CX + 2, 200 + 2);
   ctx.fillStyle = bn.col; ctx.shadowColor = bn.col; ctx.shadowBlur = 20; ctx.fillText(bn.title, CX, 200); ctx.shadowBlur = 0;
   ctx.font = `600 18px ${SERIF}`; ctx.fillStyle = '#e8dcc8'; ctx.fillText(bn.sub, CX, 228);
   ctx.font = `italic 16px Georgia,serif`; ctx.fillStyle = '#bbb'; ctx.fillText(bn.line, CX, 256);
+  if (bn.curse) { ctx.font = `bold 14px ${SANS}`; ctx.fillStyle = bn.col; ctx.fillText(bn.curse, CX, 284); }
   ctx.restore();
 }
 
@@ -1518,10 +1951,12 @@ function bar(x, y, w, h, v, col, bg = 'rgba(255,255,255,0.08)') {
   ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x, y, w * clamp(v, 0, 1), h / 3);
 }
 function drawHUD() {
-  const p = G.p, rg = RINGS[G.ring];
-  const hg = ctx.createLinearGradient(0, 0, 0, 64); hg.addColorStop(0, '#0b0710'); hg.addColorStop(1, '#140c1a');
+  const p = G.p, rg = RG();
+  const hg = ctx.createLinearGradient(0, 0, 0, 64); hg.addColorStop(0, '#07050b'); hg.addColorStop(1, '#16101f');
   ctx.fillStyle = hg; ctx.fillRect(0, 0, W, 64);
-  ctx.strokeStyle = hexA(rg.col, 0.6); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 63); ctx.lineTo(W, 63); ctx.stroke();
+  const hl = ctx.createLinearGradient(0, 0, W, 0); hl.addColorStop(0, hexA(rg.col, 0)); hl.addColorStop(0.5, hexA(rg.col, 0.9)); hl.addColorStop(1, hexA(rg.col, 0));
+  ctx.fillStyle = hl; ctx.fillRect(0, 62, W, 2);
+  ctx.fillStyle = 'rgba(255,215,94,0.25)'; ctx.fillRect(0, 64, W, 1);
   ctx.textAlign = 'left'; ctx.font = `bold 12px ${SANS}`;
   bar(16, 12, 220, 14, p.hp / p.maxHp, '#d8283c');
   ctx.fillStyle = '#fff'; ctx.fillText(`♥ ${Math.ceil(p.hp)} / ${p.maxHp}`, 22, 24);
@@ -1534,11 +1969,16 @@ function drawHUD() {
   const dc = p.dashCool > 0 ? 1 - p.dashCool / p.dashCd : 1;
   ctx.strokeStyle = dc >= 1 ? '#fff' : '#555'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(330, 32, 12, -Math.PI / 2, -Math.PI / 2 + TAU * dc); ctx.stroke();
   ctx.fillStyle = '#aaa'; ctx.font = `9px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText('KITÉRÉS', 330, 58);
+  // fegyver
+  ctx.strokeStyle = 'rgba(255,215,94,0.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(378, 30, 14, 0, TAU); ctx.stroke();
+  if (G.weapon === 'blade') { ctx.save(); ctx.translate(378, 30); ctx.rotate(Math.PI / 4); drawBlade(0, 10, 0.62); ctx.restore(); }
+  else { ctx.fillStyle = '#fff6c8'; ctx.shadowColor = '#ffd75e'; ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(378, 30, 5, 0, TAU); ctx.fill(); ctx.shadowBlur = 0; }
+  ctx.fillStyle = '#aaa'; ctx.font = `9px ${SANS}`; ctx.fillText(G.weapon === 'blade' ? 'PENGE' : 'FÉNY', 378, 58);
   // gyűrű neve
-  ctx.textAlign = 'center'; ctx.font = `700 20px ${SERIF}`; ctx.fillStyle = rg.col; ctx.fillText(`${ROMAN[G.ring]}. GYŰRŰ — ${rg.name.toUpperCase()}`, 560, 28);
+  ctx.textAlign = 'center'; ctx.font = `700 20px ${SERIF}`; ctx.fillStyle = rg.col; ctx.fillText(G.hub ? 'PURGATÓRIUM' : `${ROMAN[G.ring]}. GYŰRŰ — ${rg.name.toUpperCase()}`, 560, 28);
   ctx.font = `12px ${SANS}`; ctx.fillStyle = '#9a8fa8';
   const mm = Math.floor(G.time / 60), ss = Math.floor(G.time % 60);
-  ctx.fillText(`${rg.latin}   •   ${G.kills} legyőzött démon   •   ${mm}:${ss < 10 ? '0' : ''}${ss}   •   ${G.blessings.length} áldás`, 560, 48);
+  ctx.fillText(`${G.hub ? `${G.defeated.length} / 7 bűn elbukott` : rg.latin}   •   ${G.kills} démon   •   ${mm}:${ss < 10 ? '0' : ''}${ss}   •   ${G.blessings.length} áldás`, 560, 48);
   // minitérkép
   const r0 = G.room, cw = 16, ch = 10, mx0 = 860, my0 = 32;
   ctx.save(); ctx.beginPath(); ctx.rect(780, 4, 172, 56); ctx.clip();
@@ -1550,6 +1990,13 @@ function drawHUD() {
     if (ic) { ctx.fillStyle = ic; ctx.fillRect(x + cw / 2 - 3, y + ch / 2 - 3, 6, 6); }
   }
   ctx.restore();
+  if (G.hub) for (let i = 0; i < 7; i++) {
+    const x = 793 + i * 24, y = 32, done = G.defeated.includes(i), c = RINGS[i].col;
+    ctx.fillStyle = done ? c : 'rgba(0,0,0,0.4)'; ctx.strokeStyle = hexA(c, done ? 1 : 0.5); ctx.lineWidth = 1.5;
+    if (done) { ctx.shadowColor = c; ctx.shadowBlur = 8; }
+    ctx.beginPath(); ctx.arc(x, y, 9, 0, TAU); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+    ctx.fillStyle = done ? '#000' : hexA(c, 0.8); ctx.font = `bold 8px ${SERIF}`; ctx.textAlign = 'center'; ctx.fillText(ROMAN[i], x, y + 3);
+  }
   ctx.strokeStyle = '#3a2a48'; ctx.lineWidth = 1; ctx.strokeRect(780.5, 4.5, 171, 55);
   // főellenség életereje
   if (G.boss && !G.boss.dead && G.bossAlive) {
@@ -1597,7 +2044,7 @@ function drawPause() {
   ctx.textAlign = 'center'; ctx.font = `900 40px ${SERIF}`; ctx.fillStyle = '#ffe27a'; ctx.fillText('SZÜNET', CX, 110);
   ctx.font = `15px ${SANS}`; ctx.fillStyle = '#ddd';
   const lines = ['WASD — mozgás', 'Bal egérgomb (nyomva tartva) vagy nyilak — lövés', 'Space / Shift — kitérés (sérthetetlen közben)', 'Q / jobb egérgomb — Szent Nova (ha a Kegyelem megtelt)',
-    'E — vásárlás a boltban', 'F — teljes képernyő   •   M — hang ki/be', '', 'Esc / Enter — folytatás   •   R — vissza a főmenübe'];
+    'E — vásárlás a boltban   •   X / Tab — fegyvercsere (Szent Fény / Égi Penge)', 'F — teljes képernyő   •   M — hang ki/be', '', 'Esc / Enter — folytatás   •   R — vissza a főmenübe'];
   lines.forEach((l, i) => ctx.fillText(l, CX, 160 + i * 24));
   ctx.font = `700 18px ${SERIF}`; ctx.fillStyle = '#ffe27a'; ctx.fillText('Áldásaid', CX, 380);
   const cnt = {}; G.blessings.forEach(id => cnt[id] = (cnt[id] || 0) + 1);
@@ -1643,9 +2090,9 @@ function drawTitle() {
   ctx.fillText(touch.on ? 'Érintsd meg a kezdéshez' : 'Kattints vagy nyomj ENTER-t a kezdéshez', CX, 450); ctx.globalAlpha = 1;
   ctx.font = `13px ${SANS}`; ctx.fillStyle = '#b8a8a0';
   ctx.fillText(touch.on ? 'Bal hüvelykujj: mozgás  •  Jobb hüvelykujj: célzás és lövés (érintés = automatikus célzás)  •  Gombok: kitérés, Nova, vétel'
-    : 'WASD mozgás  •  Egér / nyilak lövés  •  Space kitérés  •  Q Szent Nova  •  E vásárlás  •  Esc szünet  •  F teljes képernyő  •  M hang', CX, 500);
+    : 'WASD mozgás  •  Egér / nyilak támadás  •  Space kitérés  •  Q Szent Nova  •  X fegyvercsere  •  E vásárlás  •  Esc szünet  •  F teljes képernyő', CX, 500);
   ctx.fillStyle = '#7a6a70';
-  ctx.fillText(`Legmélyebb gyűrű: ${best.ring ? ROMAN[Math.min(6, best.ring - 1)] : '—'}   •   Győzelmek: ${best.wins}`, CX, 530);
+  ctx.fillText(`Legtöbb legyőzött bűn: ${Math.min(7, best.ring)} / 7   •   Győzelmek: ${best.wins}`, CX, 530);
 }
 const STORY = [
   'Kezdetben volt a Fény.',
@@ -1655,7 +2102,7 @@ const STORY = [
   'Bujaság. Torkosság. Fösvénység. Restség. Harag. Irigység.',
   'És legalul, a jég trónján: a Kevélység.',
   '',
-  'Az Ég elküldte utolsó harcosát.',
+  'Az Ég elküldte utolsó harcosát a Purgatórium hét kapujához.',
   'Te vagy az Arkangyal.',
   'Szállj alá.',
 ];
@@ -1678,7 +2125,7 @@ function drawDead() {
   ctx.font = `italic 18px Georgia,serif`; ctx.fillStyle = '#ccc'; ctx.fillText('A fény kihunyt… de a Menny újra elküld.', CX, 240);
   ctx.font = `16px ${SANS}`; ctx.fillStyle = '#ddd';
   const mm = Math.floor(G.time / 60), ss = Math.floor(G.time % 60);
-  [`Elért gyűrű: ${ROMAN[G.ring]}. — ${RINGS[G.ring].name}`, `Legyőzött démonok: ${G.kills}`, `Legyőzött bűnök: ${G.bossesKilled} / 7`, `Áldások: ${G.blessings.length}`, `Idő: ${mm}:${ss < 10 ? '0' : ''}${ss}`]
+  [G.hub ? 'A Purgatóriumban buktál el' : `Itt buktál el: ${ROMAN[G.ring]}. gyűrű — ${RINGS[G.ring].name}`, `Legyőzött démonok: ${G.kills}`, `Legyőzött bűnök: ${G.bossesKilled} / 7`, `Áldások: ${G.blessings.length}`, `Idő: ${mm}:${ss < 10 ? '0' : ''}${ss}`]
     .forEach((l, i) => ctx.fillText(l, CX, 300 + i * 28));
   ctx.globalAlpha = 0.6 + Math.sin(gt * 3) * 0.4; ctx.font = `700 20px ${SERIF}`; ctx.fillStyle = '#fff';
   ctx.fillText('ENTER / kattintás — új alászállás     Esc — főmenü', CX, 490); ctx.globalAlpha = 1;
@@ -1727,7 +2174,7 @@ function frame(now) {
 requestAnimationFrame(frame);
 cv.focus();
 // tesztelési horog
-window.ARK = { get G() { return G; }, get state() { return state; }, set state(v) { state = v; }, startRun, nextRing, pick, killEnemy, enterRoom, goRoom };
+window.ARK = { get G() { return G; }, get state() { return state; }, set state(v) { state = v; }, startRun, nextRing, pick, killEnemy, enterRoom, goRoom, enterRing, enterHub, swapWeapon, hurtPlayer };
 </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # The Arkangel
 
-**Roguelike akciójáték PC-re:** az Arkangyal alászáll a Pokol hét gyűrűjén. Minden gyűrű egy főbűn, és mindegyik végén annak démona vár. A legalsó gyűrűben Lucifer, a **Kevélység** áll, amelyből minden más bűn fakad.
+**Roguelike akciójáték PC-re és telefonra:** az Arkangyal a **Purgatóriumból** indul, ahol hét kapu nyílik a Pokol hét gyűrűjébe. Minden gyűrű egy főbűn, saját átokkal és démonnal. A **Kevélység** kapuját hat lakat zárja: mindegyik akkor hullik le, amikor legyőzöl egy másik főbűnt. Mögötte Lucifer vár.
 
 ## Játék online
 
@@ -18,6 +18,7 @@ Nyisd meg a linket, fordítsd fekvőbe a telefont, és érintsd meg a képernyő
 | **KITÉRÉS** gomb | kitérés |
 | **NOVA** gomb | Szent Nova |
 | **VÉTEL** gomb (boltban, tárgy mellett) | vásárlás |
+| **FEGYVER** gomb | fegyvercsere |
 | **❚❚** gomb | szünet |
 
 ## Letöltés és indítás (telepítés nélkül)
@@ -35,6 +36,7 @@ Internet nem kell hozzá. Az egész játék egyetlen fájl.
 | **W A S D** | mozgás |
 | **Bal egérgomb** (nyomva tartva) vagy **nyilak** | lövés szent fénnyel |
 | **Space / Shift** | kitérés (közben sérthetetlen vagy) |
+| **X / Tab** | fegyvercsere: Szent Fény (távolsági) ↔ Égi Penge (közelharci) |
 | **Q** / jobb egérgomb | Szent Nova, ha a Kegyelem-sáv megtelt (minden közeli démont sebez és eltörli a lövedékeket) |
 | **E** | vásárlás a boltban |
 | **Esc** | szünet és az áldásaid listája |
@@ -52,6 +54,26 @@ Internet nem kell hozzá. Az egész játék egyetlen fájl.
 | V. | Harag (Ira) | Sátán |
 | VI. | Irigység (Invidia) | Leviatán |
 | VII. | **Kevélység (Superbia)** | **Lucifer** (háromfázisú főellenség) |
+
+## Purgatórium és fegyverek
+
+- A futam a Purgatóriumban kezdődik. A két talapzaton választhatsz fegyvert (később X-szel / FEGYVER gombbal bármikor cserélhetsz):
+  - **Szent Fény**: távolsági fénylövedékek.
+  - **Égi Penge**: közelharci suhintás. Nagyobb sebzés, egyszerre több démont is ér, és kivágja az útjába kerülő lövedékeket.
+- Az első hat bűn tetszőleges sorrendben járható be. A nehézség azzal nő, hány bűnt győztél már le.
+- Egy főbűn legyőzése után a portál visszavisz a Purgatóriumba, és egy lakat lehullik a Kevélység kapujáról.
+
+## A gyűrűk átkai
+
+| Gyűrű | Átok |
+|---|---|
+| Bujaság | a démonok érintése elbűvöl, egy pillanatig nem tudsz támadni |
+| Torkosság | a démonok gyógyulnak a találataikból, haláluk után lassító epe marad |
+| Fösvénység | minden találat lelkeket rabol tőled; a tolvaj megölésével kamatostul visszakapod |
+| Restség | sűrű köd, és a találatok lelassítanak |
+| Harag | a sebzett démonok feldühödnek, haláluk után szétrobbannak |
+| Irigység | minden találat elrabolja a Kegyelmedet |
+| Kevélység | a démonok aurája elcsábít, és magukhoz vonz |
 
 ## Roguelike elemek
 
