@@ -139,10 +139,13 @@ function attackersNow() { let n = 0; for (const e of G.enemies) if (!e.boss && e
 function updEnemy(e, dt) {
   if (e.dead) return;
   const p = G.p;
+  // a messzi, nyugvó démonok alszanak – nem terhelik a telefont
+  if (!e.aggro && !e.boss && (Math.abs(e.x - p.x) > 1300 || Math.abs(e.y - p.y) > 1000)) return;
   if (e.flash > 0) e.flash -= dt;
   if (e.orbCd > 0) e.orbCd -= dt;
   if (e.dodgeCd > 0) e.dodgeCd -= dt;
-  e.t += dt;
+  if (e.hurtT > 0) e.hurtT -= dt;
+  e.t += dt; e.moving = 0;
   if (e.burn > 0) {
     e.burn -= dt; e.hp -= p.dmg * 0.4 * Math.max(1, p.burn) * dt;
     if (Math.random() < 0.3) G.parts.push({ x: e.x + rand(-e.r, e.r), y: e.y + rand(-e.r, e.r), vx: 0, vy: -60, life: 0.4, max: 0.4, col: '#ffb060', size: 3 });
@@ -155,7 +158,7 @@ function updEnemy(e, dt) {
   if (!e.boss && G.ring === 4 && !G.hub && !e.rage && e.hp < e.maxHp * 0.5 && e.ri === 4) { e.rage = true; e.spd *= 1.4; floatText(e.x, e.y - e.r - 12, 'DÜH!', '#ff4a24', 0.8, 14); }
   const d = dist(e, p);
   e.hitWall = false;
-  if (e.boss) bossPhase(e);
+  if (e.boss) { bossPhase(e, dt); if (e.intro > 0) { collideObst(e); return; } }
   if (e.stun > 0 && !e.boss) { e.stun -= dt; if (e.act && e.act.ph === 'wind') e.act = null; }
   else if (e.act) runAct(e, dt, d);
   else think(e, dt, d);
@@ -198,6 +201,11 @@ function think(e, dt, d) {
   // ne torlódjanak egymásra
   for (const o of G.enemies) { if (o === e || o.dead || o.boss) continue; const dx = e.x - o.x, dy = e.y - o.y, dd = dx * dx + dy * dy; if (dd < 3600 && dd > 1) { a = Math.atan2(Math.sin(a) + dy / Math.sqrt(dd) * 0.6, Math.cos(a) + dx / Math.sqrt(dd) * 0.6); } }
   e.x += Math.cos(a) * s * dt; e.y += Math.sin(a) * s * dt; e.moving = s;
+  keepOutOfSanctuary(e);
+}
+// a menedékbe (kalmár) démon nem léphet
+function keepOutOfSanctuary(e) {
+  for (const o of G.pois) { if (o.type !== 'shop') continue; const dx = e.x - o.x, dy = e.y - o.y - 30, d = Math.hypot(dx / 1.75, dy); if (d < 110) { const k = 110 / Math.max(1, d); e.x = o.x + dx * k; e.y = o.y + 30 + dy * k; } }
 }
 function wander(e, dt, sp) {
   if (EDEF[e.type] && EDEF[e.type].still) return;
@@ -323,9 +331,9 @@ function actTick(e, A, m, dt) {
   }
 }
 // főellenség fázisai
-function bossPhase(b) {
-  if (b.intro > 0) return;
-  if (b.inv > 0) b.inv -= 1 / 60;
+function bossPhase(b, dt) {
+  if (b.intro > 0) { b.intro -= dt; return; }
+  if (b.inv > 0) b.inv -= dt;
   const max = BOSS_MOVES[b.key].length, ph = max === 3 ? (b.hp < b.maxHp * 0.33 ? 3 : b.hp < b.maxHp * 0.66 ? 2 : 1) : (b.hp < b.maxHp * 0.5 ? 2 : 1);
   if (ph > b.phase) {
     b.phase = ph; b.inv = 1.2; b.act = null; G.charm = 0; G.beams.length = 0; G.shake = 16; sfx('roar'); b.spd *= 1.12;
@@ -366,82 +374,4 @@ function drawTelegraph(e) {
   ctx.restore();
 }
 
-// ---------- démonok rajza: tompított színek, sötét kontúr, kevés fény ----------
-function drawEnemy(e) {
-  if (e.boss) { drawBoss(e); return; }
-  const rg = RINGS[e.ri] || RINGS[0], col = rg.col, fl = e.flash > 0, r = e.r;
-  const a = e.face || 0, bob = Math.sin(e.t * (e.moving ? 10 : 3)) * (e.moving ? 1.6 : 0.8), sq = 1 + Math.sin(e.t * (e.moving ? 10 : 3)) * 0.04;
-  ctx.save(); ctx.translate(e.x, e.y);
-  if (e.spawn > 0) ctx.globalAlpha = 1 - e.spawn / 0.6;
-  ctx.globalAlpha *= e.alpha;
-  // talajárnyék
-  ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.beginPath(); ctx.ellipse(0, r * 0.85, r * 1.05, r * 0.36, 0, 0, TAU); ctx.fill();
-  if (!G.hub && e.ri === 6 && e.spawn <= 0) { // csábító aura (Kevélység)
-    const d = dist(e, G.p); ctx.strokeStyle = 'rgba(230,170,240,0.28)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 8]); ctx.lineDashOffset = -gt * 30; ctx.beginPath(); ctx.arc(0, 0, 115, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-    if (d < 115) { ctx.strokeStyle = 'rgba(255,150,220,0.45)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(G.p.x - e.x, G.p.y - e.y); ctx.stroke(); }
-  }
-  ctx.translate(0, -bob); ctx.scale(1 / sq, sq);
-  const dark = hexA(rg.body, 1), mid = col;
-  const body = fl ? '#ffffff' : null;
-  const gr = ctx.createLinearGradient(-r, -r, r * 0.6, r);
-  gr.addColorStop(0, fl ? '#fff' : shade(mid, 0.75)); gr.addColorStop(1, fl ? '#fff' : shade(rg.body, 0.8));
-  ctx.lineWidth = 2; ctx.strokeStyle = '#140a10'; ctx.fillStyle = gr;
-  const eyes = (sp = 0.36, ey = -0.15, es = 0.13, ec = '#ffd36a') => { const ox = Math.cos(a) * r * 0.16, oy = Math.sin(a) * r * 0.1; ctx.fillStyle = '#1a0a08'; ctx.beginPath(); ctx.arc(-r * sp + ox, r * ey + oy, r * es * 1.5, 0, TAU); ctx.arc(r * sp + ox, r * ey + oy, r * es * 1.5, 0, TAU); ctx.fill(); ctx.fillStyle = ec; ctx.beginPath(); ctx.arc(-r * sp + ox, r * ey + oy, r * es, 0, TAU); ctx.arc(r * sp + ox, r * ey + oy, r * es, 0, TAU); ctx.fill(); };
-  const horns = (k = 1) => { ctx.fillStyle = fl ? '#fff' : '#2a1a14'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * r * 0.45, -r * 0.6); ctx.quadraticCurveTo(s * r * 1.1 * k, -r * 1.1, s * r * 0.9 * k, -r * 1.55 * k); ctx.lineTo(s * r * 0.2, -r * 0.85); ctx.closePath(); ctx.fill(); ctx.stroke(); } ctx.fillStyle = gr; };
-  switch (e.type) {
-    case 'imp': case 'mini': {
-      horns(0.9);
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * r * 0.5, r * 0.5); ctx.lineTo(s * r * 0.75, r * 1.1); ctx.lineTo(s * r * 0.3, r * 0.75); ctx.fill(); ctx.stroke(); }
-      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.arc(-r * 0.3, -r * 0.35, r * 0.4, 0, TAU); ctx.fill();
-      eyes(); ctx.strokeStyle = '#1a0806'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(Math.cos(a) * 2, r * 0.25, r * 0.35, 0.2, Math.PI - 0.2); ctx.stroke(); break;
-    }
-    case 'fly': {
-      const wf = Math.sin(gt * 40) * 0.5; ctx.fillStyle = 'rgba(210,220,200,0.35)'; ctx.beginPath(); ctx.ellipse(-r, -r * 0.6, r * 0.9, r * 0.38, -0.5 + wf, 0, TAU); ctx.ellipse(r, -r * 0.6, r * 0.9, r * 0.38, 0.5 - wf, 0, TAU); ctx.fill();
-      ctx.fillStyle = gr; ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.85, 0, 0, TAU); ctx.fill(); ctx.stroke(); eyes(0.34, -0.1, 0.22, '#ff5a40'); break;
-    }
-    case 'spitter': {
-      ctx.beginPath(); ctx.ellipse(0, 0, r, r * 1.05, 0, 0, TAU); ctx.fill(); ctx.stroke();
-      for (let i = 0; i < 4; i++) { const q = -0.9 + i * 0.6; ctx.beginPath(); ctx.arc(Math.cos(q) * r * 0.55, -r * 0.2 + Math.sin(q) * r * 0.5, 2.5, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fill(); }
-      ctx.fillStyle = '#160606'; ctx.beginPath(); ctx.ellipse(Math.cos(a) * r * 0.45, Math.sin(a) * r * 0.4 + 3, r * 0.34, r * 0.24 + (e.act ? 3 : Math.sin(e.t * 6)), a, 0, TAU); ctx.fill();
-      eyes(0.33, -0.38, 0.12); break;
-    }
-    case 'brute': {
-      horns(1.2);
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * r * 1.05, r * 0.15, r * 0.38, r * 0.5, s * 0.3, 0, TAU); ctx.fill(); ctx.stroke(); }
-      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-r, -r * 0.9, r * 2, r * 1.9, r * 0.5) : ctx.rect(-r, -r * 0.9, r * 2, r * 1.9); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(-r * 0.7, r * 0.1, r * 1.4, r * 0.12);
-      eyes(0.38, -0.25, 0.11, '#ff7a4a'); ctx.fillStyle = '#e8e0c8'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * r * 0.3, r * 0.35); ctx.lineTo(s * r * 0.4, r * 0.05); ctx.lineTo(s * r * 0.18, r * 0.35); ctx.fill(); } break;
-    }
-    case 'wisp': {
-      ctx.beginPath(); ctx.moveTo(0, -r * 1.6 - Math.sin(e.t * 9) * 3); ctx.quadraticCurveTo(r * 1.2, -r * 0.3, r, r * 0.3); ctx.quadraticCurveTo(r * 0.5, r * 1.2, 0, r * 0.7); ctx.quadraticCurveTo(-r * 0.5, r * 1.2, -r, r * 0.3); ctx.quadraticCurveTo(-r * 1.2, -r * 0.3, 0, -r * 1.6 - Math.sin(e.t * 9) * 3);
-      ctx.globalAlpha *= 0.85; ctx.fill(); ctx.stroke(); ctx.globalAlpha = Math.min(1, ctx.globalAlpha / 0.85); eyes(0.3, 0.1, 0.13, '#f0f0ff'); break;
-    }
-    case 'splitter': {
-      const wob = Math.sin(e.t * 6) * 0.07; ctx.beginPath(); ctx.ellipse(0, 0, r * (1 + wob), r * (1 - wob), 0, 0, TAU); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.arc(-r * 0.4, r * 0.3, r * 0.2, 0, TAU); ctx.arc(r * 0.45, r * 0.2, r * 0.14, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#120404'; ctx.beginPath(); ctx.ellipse(0, r * 0.35, r * 0.5, r * 0.2 + (e.act ? 4 : 0), 0, 0, TAU); ctx.fill(); eyes(0.34, -0.32, 0.13); break;
-    }
-    case 'turret': {
-      ctx.fillStyle = '#2a2430'; ctx.beginPath(); ctx.ellipse(0, r * 0.5, r * 1.1, r * 0.5, 0, 0, TAU); ctx.fill(); ctx.stroke(); ctx.fillStyle = gr;
-      ctx.beginPath(); for (let i = 0; i < 6; i++) { const q = i / 6 * TAU + e.spin * 0.2; ctx.lineTo(Math.cos(q) * r, Math.sin(q) * r * 0.9 - 4); } ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#1a0a08'; ctx.beginPath(); ctx.ellipse(0, -4, r * 0.55, r * 0.32, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = e.act ? '#fff2c0' : '#ffcf5a'; ctx.beginPath(); ctx.arc(Math.cos(a) * r * 0.2, -4 + Math.sin(a) * r * 0.1, r * 0.17, 0, TAU); ctx.fill(); break;
-    }
-    case 'teleporter': {
-      ctx.beginPath(); ctx.moveTo(0, -r * 1.5); ctx.lineTo(r * 1.1, r); ctx.quadraticCurveTo(0, r * 1.4, -r * 1.1, r); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#0a0608'; ctx.beginPath(); ctx.ellipse(0, -r * 0.25, r * 0.55, r * 0.5, 0, 0, TAU); ctx.fill(); eyes(0.2, -0.25, 0.1, shade(col, 1.2)); break;
-    }
-    case 'shadow': ctx.restore(); drawAngel(e.x, e.y, a, e.t, true, e.alpha * (fl ? 0.6 : 1)); return;
-  }
-  if (e.elite) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r + 5, 0, TAU); ctx.stroke(); }
-  ctx.restore();
-  ctx.save(); ctx.translate(e.x, e.y);
-  if (e.burn > 0) { ctx.fillStyle = '#ffa040'; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.ellipse(0, -r - 4, 3, 5 + Math.sin(gt * 20), 0, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
-  if (e.stun > 0) { ctx.fillStyle = PAL.gold; for (let i = 0; i < 3; i++) { const q = gt * 6 + i * TAU / 3; ctx.beginPath(); ctx.arc(Math.cos(q) * r * 0.8, -r - 8 + Math.sin(q) * 3, 2.5, 0, TAU); ctx.fill(); } }
-  if (e.slowT > 0) { ctx.globalAlpha = 0.3; ctx.fillStyle = PAL.frost; ctx.beginPath(); ctx.arc(0, 0, r * 1.1, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
-  if (e.loot) { ctx.textAlign = 'center'; ctx.font = `bold 12px ${SANS}`; ctx.fillStyle = '#000'; ctx.fillText(`◈${e.loot}`, 1, -r - 15); ctx.fillStyle = '#ffd700'; ctx.fillText(`◈${e.loot}`, 0, -r - 16); }
-  ctx.restore();
-  if (e.hp < e.maxHp) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(e.x - 16, e.y - r - 12, 32, 4); ctx.fillStyle = shade(col, 0.95); ctx.fillRect(e.x - 16, e.y - r - 12, 32 * Math.max(0, e.hp / e.maxHp), 4); }
-}
 function shade(hex, k) { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, n >> 8 & 255, n & 255].map(v => Math.max(0, Math.min(255, Math.round(v * k)))); return `rgb(${c[0]},${c[1]},${c[2]})`; }

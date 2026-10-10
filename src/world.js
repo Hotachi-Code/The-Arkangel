@@ -3,7 +3,7 @@
 //  A Purgatórium középen áll; körülötte hat bűn tája, északon a lezárt Kevélység.
 //  A térkép rögzített magból épül (mindig ugyanaz a világ), a találkozások véletlenek.
 // =====================================================================
-const TS = 40, MW = 168, MH = 128, VIEW_H = H - 64, CHUNK = 16;
+const TS = 40, MW = 300, MH = 230, VIEW_H = H - 64, CHUNK = 16;
 const CAM = { x: 0, y: 0 };
 const K_GROUND = 0, K_ROCK = 1, K_LIQ = 2, K_SLOW = 3, K_ABYSS = 4, K_GATE = 5;
 let WORLD = null;
@@ -19,12 +19,12 @@ function makeNoise(seed) {
 
 // tájak: ri 0..6 a bűnök, 7 a Purgatórium. tx, ty = középpont csempében
 // a tájak a Purgatórium körüli szögcikkelyek: a Kevélység északon, a többi hat óramutató szerint
-const CXT = 84, CYT = 66, ASP = 1.32;
+const CXT = 150, CYT = 116, ASP = 1.32, RS = 1.8;   // RS: a táj méretaránya
 const REG_ANG = { 6: -Math.PI / 2 };
 for (let k = 0; k < 6; k++) REG_ANG[k] = -Math.PI / 2 + (k + 1) * TAU / 7;
-const REGIONS = [0, 1, 2, 3, 4, 5, 6].map(ri => ({ ri, tx: Math.round(CXT + Math.cos(REG_ANG[ri]) * 34 * ASP), ty: Math.round(CYT + Math.sin(REG_ANG[ri]) * 34) }));
+const REGIONS = [0, 1, 2, 3, 4, 5, 6].map(ri => ({ ri, tx: Math.round(CXT + Math.cos(REG_ANG[ri]) * 34 * RS * ASP), ty: Math.round(CYT + Math.sin(REG_ANG[ri]) * 34 * RS) }));
 REGIONS.push({ ri: 7, tx: CXT, ty: CYT });
-const PURG_R = 13;
+const PURG_R = 15;
 // visszafogott, földszínű paletta tájanként: talaj, talaj2 (folt), szikla teteje, szikla oldala, folyadék
 const BIOME = {
   7: { g: [76, 82, 94], g2: [82, 92, 76], rt: [138, 145, 160], rs: [72, 77, 92], liq: [70, 92, 118], slow: null, name: 'Purgatórium' },
@@ -58,7 +58,7 @@ function buildWorld() {
     if (dp < PURG_R) { reg = 7; BF[i] = 0; }
     else if (dp < PURG_R + 2.2) { reg = dp < PURG_R + 1 ? 7 : r1; k = K_ROCK; }
     else if (gap < 2.2 + N(x * 0.2, y * 0.2) * 1.2) k = K_ROCK;
-    if (reg !== 7 && rr > 51 + (N(x * 0.1, y * 0.1) - 0.5) * 9) k = K_ABYSS;
+    if (reg !== 7 && rr > 51 * RS + (N(x * 0.06, y * 0.06) - 0.5) * 14) k = K_ABYSS;
     if (x < 3 || y < 3 || x >= MW - 3 || y >= MH - 3) k = K_ABYSS;
     if (k === K_GROUND && reg !== 7) {
       const rock = N3(x * 0.13, y * 0.13), liq = N(x * 0.07 + 90, y * 0.07 + 90);
@@ -105,19 +105,19 @@ function buildWorld() {
     const cands = [];
     for (let y = 4; y < MH - 4; y++) for (let x = 4; x < MW - 4; x++) {
       const ti = y * MW + x; if (RG8[ti] !== ri || BF[ti] > 0.02 || Kt[ti] === K_ABYSS) continue;
-      const rr = Math.hypot((x - C.tx) / ASP, y - C.ty); if (rr < 20 || rr > 45) continue;
+      const rr = Math.hypot((x - C.tx) / ASP, y - C.ty); if (rr < 26 || rr > 84) continue;
       cands.push({ x, y, rr, a: arcDiff(Math.atan2(y - C.ty, (x - C.tx) / ASP), REG_ANG[ri]) });
     }
     const n = ordered.length || 1, chosen = [];
-    const far = cands.filter(q => q.rr > 39).sort((p1, p2) => p1.a - p2.a)[0] || cands.sort((p1, p2) => p2.rr - p1.rr)[0];
+    const far = cands.filter(q => q.rr > 74).sort((p1, p2) => p1.a - p2.a)[0] || cands.sort((p1, p2) => p2.rr - p1.rr)[0];
     for (let i = 0; i < n; i++) {
       const rd = ordered[i], isBoss = rd.type === 'boss';
       let best = far;
       if (!isBoss) {
-        const target = 21 + (i / Math.max(1, n - 1)) * 17; let bs = -1e9;
+        const target = 28 + (i / Math.max(1, n - 1)) * 44; let bs = -1e9;
         for (const q of cands) {
           const md = Math.min(Hypot(q, far) - 6, ...chosen.map(o => Hypot(q, o)));
-          const sc = Math.min(md, 11) * 3 - Math.abs(q.rr - target) * 1.4 + hash2(q.x, q.y, 71) * 0.5;
+          const sc = Math.min(md, 16) * 3 - Math.abs(q.rr - target) * 1.4 + hash2(q.x, q.y, 71) * 0.5;
           if (sc > bs) { bs = sc; best = q; }
         }
       }
@@ -136,6 +136,25 @@ function buildWorld() {
       prev = { x: px, y: py };
     });
   }
+  // kijelölt helyek: démonbarlangok, romok (látványosság), bajba jutott lelkek, ereklyetartók
+  W0.sites = [];
+  const SITE_PLAN = [['lair', 9], ['ruin', 4], ['rescue', 2], ['cache', 3]];
+  for (const R0 of REGIONS) {
+    if (R0.ri === 7) continue;
+    const ri = R0.ri, rnd = mulberry(ri * 131 + 17), taken = W0.pois.filter(o => o.ri === ri).map(o => ({ x: o.x / TS, y: o.y / TS }));
+    const cands = [];
+    for (let y = 4; y < MH - 4; y += 2) for (let x = 4; x < MW - 4; x += 2) { const ti = y * MW + x; if (RG8[ti] !== ri || BF[ti] > 0.02 || Kt[ti] === K_ABYSS) continue; const rr = Math.hypot((x - C.tx) / ASP, y - C.ty); if (rr < 24 || rr > 86) continue; cands.push({ x, y }); }
+    for (const [type, cnt] of SITE_PLAN) for (let k = 0; k < cnt; k++) {
+      let best = null, bs = -1;
+      for (let t = 0; t < 60; t++) { const q = cands[Math.floor(rnd() * cands.length)]; if (!q) break; const md = Math.min(...taken.map(o => Hypot(o, q))); if (md > bs) { bs = md; best = q; } }
+      if (!best || bs < 7) continue;
+      const near = taken.reduce((m, o) => Hypot(o, best) < Hypot(m, best) ? o : m, taken[0]);
+      carveLine(near, best, 1.4, true, 3, ri * 7 + k);
+      carve(best.x, best.y, type === 'lair' ? 4.5 : 3, false);
+      taken.push(best);
+      W0.sites.push({ type, ri, x: (best.x + 0.5) * TS, y: (best.y + 0.5) * TS, v: k, title: type === 'ruin' ? RUIN_NAMES[ri][k % RUIN_NAMES[ri].length] : type === 'lair' ? LAIR_NAMES[ri][k % LAIR_NAMES[ri].length] : '' });
+    }
+  }
   // a Kevélység tája csak a kapun át érhető el: a határát utólag is lezárjuk
   for (let i = 0; i < MW * MH; i++) if ((RG8[i] === 6) !== (RG2[i] === 6) && RG8[i] !== 7 && BF[i] > 0.27 && Kt[i] !== K_ABYSS) Kt[i] = K_ROCK;
   // a Kevélység kapuja: lezárt kőfal a hágóban
@@ -151,14 +170,41 @@ function buildWorld() {
     const kinds = DECOR_BY[reg], kind = kinds[Math.floor(hash2(x, y, 12) * kinds.length)];
     addDecor(kind, (x + 0.5) * TS + (hash2(x, y, 13) - 0.5) * 20, (y + 0.5) * TS + (hash2(x, y, 14) - 0.5) * 20, Math.floor(hash2(x, y, 15) * 3));
   }
+  // a barlangok körül: karóba húzott tetemek, ketrecek, koponyahalmok
+  for (const st of W0.sites) {
+    if (st.type === 'lair') for (let k = 0; k < 5; k++) { const a = k / 5 * TAU + st.v, rr = 90 + hash2(k, st.v, st.ri) * 50; addDecor(['impaled', 'cage', 'skulls', 'impaled', 'bonepile'][k], st.x + Math.cos(a) * rr, st.y + Math.sin(a) * rr * 0.8, k % 3); }
+    if (st.type === 'ruin') { addDecor('ruinarch', st.x, st.y - 30, st.ri % 3); addDecor('pillar', st.x - 110, st.y + 20, 1); addDecor('pillar', st.x + 110, st.y + 30, 2); }
+  }
   // Purgatórium: oszlopkör és ciprusok
-  for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + 0.11; if (REGIONS.some(r => r.ri !== 7 && Math.abs(((Math.atan2(r.ty - C.ty, r.tx - C.tx) - a + Math.PI * 3) % TAU) - Math.PI) < 0.32)) continue; addDecor(k % 2 ? 'cypress' : 'pillar', (C.tx + 0.5 + Math.cos(a) * 10.5) * TS, (C.ty + 0.5 + Math.sin(a) * 10.5) * TS, k % 3); }
+  for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + 0.11; if (REGIONS.some(r => r.ri !== 7 && Math.abs(((Math.atan2(r.ty - C.ty, r.tx - C.tx) - a + Math.PI * 3) % TAU) - Math.PI) < 0.32)) continue; addDecor(k % 2 ? 'cypress' : 'pillar', (C.tx + 0.5 + Math.cos(a) * 12.5) * TS, (C.ty + 0.5 + Math.sin(a) * 12.5) * TS, k % 3); }
   buildMinimap();
   return W0;
 }
 const DECOR_BY = {
-  7: ['cypress', 'stone', 'pillar'], 0: ['rose', 'rose', 'statue', 'rose'], 1: ['ribs', 'deadtree', 'urn'], 2: ['goldpile', 'goldpile', 'urn', 'statue'],
-  3: ['deadtree', 'reeds', 'reeds', 'stone'], 4: ['spire', 'spire', 'deadtree'], 5: ['crystal', 'crystal', 'mirror'], 6: ['icespike', 'icespike', 'statue', 'pillar'],
+  7: ['cypress', 'stone', 'pillar'], 0: ['rose', 'rose', 'statue', 'rose', 'impaled', 'deadtree'], 1: ['ribs', 'deadtree', 'urn', 'bonepile', 'gibbet'], 2: ['goldpile', 'goldpile', 'urn', 'statue', 'gibbet', 'skulls'],
+  3: ['deadtree', 'reeds', 'reeds', 'stone', 'cage', 'bonepile'], 4: ['spire', 'spire', 'deadtree', 'impaled', 'skulls'], 5: ['crystal', 'crystal', 'mirror', 'cage', 'bonepile'], 6: ['icespike', 'icespike', 'statue', 'pillar', 'impaled', 'skulls'],
+};
+const RUIN_NAMES = {
+  0: ['Az Összeforrt Szeretők Szobra', 'A Leomlott Nászkápolna', 'A Szél Hárfája', 'Didó Máglyája'],
+  1: ['A Kiürült Lakomacsarnok', 'Kerberosz Csontvára', 'A Rothadó Kertek', 'Az Ezer Tál Oltára'],
+  2: ['A Beomlott Pénzverde', 'Krőzus Sírja', 'A Mérlegek Temploma', 'Az Aranyborjú Talapzata'],
+  3: ['A Félbehagyott Katedrális', 'Az Elsüllyedt Harangtorony', 'A Soha Fel Nem Gyújtott Máglya', 'Az Álmodók Kútja'],
+  4: ['A Megtört Pajzsok Fala', 'Dísz Ledőlt Kapuja', 'A Vérmező Emlékköve', 'A Kihunyt Kohók'],
+  5: ['A Bevarrt Szemű Szentek', 'A Tükörcsarnok Romjai', 'A Szomszéd Kertjének Kapuja', 'Káin Kútja'],
+  6: ['A Lehullott Koronák Lépcsője', 'Bábel Csonkja', 'A Megfagyott Kórus', 'Az Első Bukás Helye'],
+};
+const LAIR_NAMES = {
+  0: ['Kéjbarlang', 'A Selyemhurkok Odúja', 'Az Ölelő Tövisek'], 1: ['A Falánkok Ólja', 'A Csontrágók Gödre', 'A Dögkút'], 2: ['A Zsugoriak Rejteke', 'Az Elásott Adósok', 'A Pénzhegy Árnyéka'],
+  3: ['A Mocsári Fészek', 'Az Elalvók Kriptája', 'A Lusták Vermei'], 4: ['A Vérmező', 'A Karók Erdeje', 'Az Égő Árok'], 5: ['A Leskelődők Fészke', 'A Zöld Szemek Barlangja', 'Az Irigyek Gödre'], 6: ['A Gőgösök Trónterme', 'A Jégbe Fagyottak', 'A Bukottak Tábora'],
+};
+const RUIN_TEXT = {
+  0: ['„Itt kértük, hogy soha ne váljunk el. A szél meghallgatott minket.”', 'A vésett nevek fölött friss vér csorog. Valaki még mindig ide jár imádkozni.'],
+  1: ['A kőasztalon ezer üres tál. Egyiken sincs morzsa. A falakon fogak nyoma.', '„Ettünk, hogy ne érezzük az ürességet. Most az üresség eszik minket.”'],
+  2: ['A mérleg egyik serpenyőjében arany, a másikban egy emberi szív. A szív a nehezebb.', 'Egy kopott tábla: „Minden adósság megfizettetik. Kamatostul.”'],
+  3: ['A katedrális sosem készült el. A kőművesek holtteste még ott ül a bontatlan kövek mellett.', '„Holnap” – ez az egyetlen szó, ami a falakon olvasható. Ezerszer.'],
+  4: ['A kőbe vájt jelek egy csata nevét őrzik, amelyről senki sem tudja, miért vívták.', 'Karók sora, rajtuk sisakok. A sisakok alatt még mozog valami.'],
+  5: ['A szentek szemét drótttal varrták be. A varratok között könny szivárog.', 'Minden tükörben más arc néz vissza – mindig olyan, akinek jobb sora volt.'],
+  6: ['A lépcső minden fokán egy korona. A legfelső üres – arra vár, aki a legmagasabbra jut.', '„Nem szolgálok” – írták a kőbe. Alatta, apróbb betűkkel: „Mégis szolgáltam.”'],
 };
 function addDecor(kind, x, y, v) {
   const d = { kind, x, y, v, cr: DECOR_CR[kind] || 0 };
@@ -167,7 +213,7 @@ function addDecor(kind, x, y, v) {
   if (!WORLD.dgrid.has(k)) WORLD.dgrid.set(k, []);
   WORLD.dgrid.get(k).push(d);
 }
-const DECOR_CR = { cypress: 10, pillar: 14, statue: 16, deadtree: 8, spire: 14, crystal: 13, mirror: 12, icespike: 12, goldpile: 18, ribs: 16, urn: 10, rose: 12, stone: 12, reeds: 0 };
+const DECOR_CR = { impaled: 8, gibbet: 10, cage: 10, skulls: 18, bonepile: 0, ruinarch: 0, cypress: 10, pillar: 14, statue: 16, deadtree: 8, spire: 14, crystal: 13, mirror: 12, icespike: 12, goldpile: 18, ribs: 16, urn: 10, rose: 12, stone: 12, reeds: 0 };
 
 // ---------- lekérdezések ----------
 const tileAt = (x, y) => { const tx = Math.floor(x / TS), ty = Math.floor(y / TS); if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return K_ABYSS; return WORLD.K[ty * MW + tx]; };
@@ -234,7 +280,7 @@ function worldStart() {
   G.fog = new Uint8Array(MW * MH); FOGG.fillStyle = '#000'; FOGG.globalCompositeOperation = 'source-over'; FOGG.fillRect(0, 0, MW, MH);
   G.seenReg = {}; G.dir = { t: 25, n: 0 }; G.encs = [];
   G.curReg = 7; G.hub = true; G.room = G.regionObjs[7];
-  spawnPatrols();
+  spawnSites();
   const C = WORLD.C;
   G.p.x = (C.tx + 0.5) * TS; G.p.y = (C.ty + 4.6) * TS;
   updateCamera(0, true);
@@ -290,7 +336,21 @@ function lockPos(k) {
 }
 
 // ---------- járőrök, táborok, találkozások ----------
-function spawnPatrols() {
+function spawnSites() {
+  for (const st of WORLD.sites) {
+    if (st.type === 'lair') {
+      const types = RINGS[st.ri].enemies, n = 3 + (st.v % 3);
+      for (let k = 0; k < n; k++) { const f = findFree(st.x + Math.cos(k * 1.7) * 70, st.y + Math.sin(k * 1.7) * 60); const e = mkEnemy(k === 0 && st.v % 3 === 2 ? 'brute' : choice(types), f.x, f.y, st.ri); e.spawn = 0; e.lair = st; e.home = { x: st.x, y: st.y }; G.enemies.push(e); }
+    } else if (st.type === 'rescue') {
+      const types = RINGS[st.ri].enemies;
+      const enc = { type: 'normal', kind: 'soul', x: st.x, y: st.y, ri: st.ri, title: 'Bajba jutott lélek', fixed: true, npc: { name: 'Elveszett lélek', look: 'soul', talk: choice(LOST_LINES).map(t => ({ who: 'Elveszett lélek', text: t, col: '#9fd0dc' })), reward: 'treasure' } };
+      for (let k = 0; k < 4; k++) { const f = findFree(st.x + Math.cos(k * 1.6) * 95, st.y + Math.sin(k * 1.6) * 85); const e = mkEnemy(choice(types), f.x, f.y, st.ri); e.spawn = 0; e.enc = enc; e.guard = true; G.enemies.push(e); }
+      G.encs.push(enc);
+    } else if (st.type === 'cache') G.encs.push({ type: 'cache', kind: 'cache', x: st.x, y: st.y, ri: st.ri, taken: false, cursed: st.v % 2 === 1, fixed: true });
+    else if (st.type === 'ruin') G.encs.push({ type: 'ruin', kind: 'ruin', x: st.x, y: st.y, ri: st.ri, title: st.title, read: false, fixed: true, text: RUIN_TEXT[st.ri][st.v % RUIN_TEXT[st.ri].length] });
+  }
+}
+function spawnPatrolsOld() {
   const rnd = mulberry(424242);
   for (let ri = 0; ri <= 6; ri++) {
     const R0 = REGIONS[ri];
@@ -330,6 +390,7 @@ const LOST_LINES = [
   ['A démonok azt mondták, senki sem jön. Hazudtak.', 'Ezt egy angyal hagyta itt rég. Talán épp neked.'],
 ];
 function director(dt) {
+  return; // nincs véletlen ellenségszülés: a démonok kijelölt helyeken (barlangok, táborok) várnak
   const p = G.p, d = G.dir;
   if (G.hub || G.arena || state !== 'play') return;
   const combat = G.enemies.some(e => e.aggro && !e.dead && dist(e, p) < 750);
@@ -400,7 +461,7 @@ function worldUpdate(dt) {
     } else if (o.type === 'treasure' || o.type === 'shrine') {
       if (!o.taken && d < 36) { o.taken = true; openChoice(o.type); }
     } else if (o.type === 'shop') {
-      if (!o.items) { const opts = UPG.offers ? UPG.offers('shop', 3) : pickBlessings(3).map(blessOffer); o.items = opts.map((q, i) => ({ offer: q, x: o.x - 110 + i * 74, y: o.y + 70, price: (q.price || 15) + G.lvl * 4 })); o.items.push({ heal: true, x: o.x + 112, y: o.y + 70, price: 8 + G.lvl * 2 }); }
+      if (!o.items) { const opts = UPG.offers ? UPG.offers('shop', 3) : pickBlessings(3).map(blessOffer); o.items = opts.map((q, i) => ({ offer: q, x: o.x - 105 + i * 70, y: o.y + 66, price: (q.price || 15) + G.lvl * 4 })); o.items.push({ heal: true, x: o.x + 105, y: o.y + 66, price: 8 + G.lvl * 2 }); }
       if (d < 260 && !o.entered) { o.entered = true; emit('roomEnter', o); }
     } else if (o.type === 'boss') {
       const done = G.defeated.includes(o.ri);
@@ -415,7 +476,10 @@ function worldUpdate(dt) {
       if (!enc.active && d < 360) { enc.active = true; startEncounter(enc); for (const e of encEnemies(enc)) e.aggro = true; }
       if (enc.active && encEnemies(enc).length === 0) { endEncounter(enc); enc.done = true; }
       if (enc.done && !enc.talked && d < 90) { enc.talked = true; startTalk(enc.npc.talk, () => { if (enc.npc.reward) openChoice(enc.npc.reward); else { for (let i = 0; i < 6; i++) dropPickup('soul', enc.x, enc.y); dropPickup('heart', enc.x, enc.y); } }); }
-      if (d > 1800) enc.cleared = true;
+      if (d > 1800 && !enc.fixed) enc.cleared = true;
+    } else if (enc.kind === 'ruin') {
+      if (!enc.found && d < 420) { enc.found = true; G.banner = { small: true, title: enc.title, sub: 'Látványosság', line: '', t: 0, dur: 2.6, col: RINGS[enc.ri].col }; }
+      if (!enc.read && d < 80) { enc.read = true; startTalk([{ who: enc.title, text: enc.text, col: '#d8c8a8' }], () => { for (let i = 0; i < 3; i++) dropPickup('soul', enc.x, enc.y + 40); }); }
     } else if (enc.kind === 'ambush') {
       if (encEnemies(enc).length === 0) endEncounter(enc);
     } else if (enc.kind === 'cache') {
@@ -430,13 +494,13 @@ function worldUpdate(dt) {
         } else { for (let i = 0; i < 7; i++) dropPickup('soul', enc.x, enc.y); if (Math.random() < 0.5) dropPickup('heart', enc.x, enc.y); sfx('coin'); floatText(enc.x, enc.y - 40, 'Elrejtett lelkek', '#8fe8ff', 1.4, 15); }
         enc.cleared = true;
       }
-      if (d > 2000) enc.cleared = true;
+      if (d > 2000 && !enc.fixed) enc.cleared = true;
     }
     if (enc.cleared && enc.onClear) { const f = enc.onClear; enc.onClear = null; f(); }
   }
-  G.encs = G.encs.filter(e => !(e.cleared && (!e.npc || e.talked || Math.hypot(p.x - e.x, p.y - e.y) > 1800)));
+  G.encs = G.encs.filter(e => e.kind === 'ruin' || !(e.cleared && (!e.npc || e.talked || (!e.fixed && Math.hypot(p.x - e.x, p.y - e.y) > 1800))));
   // távoli, nem harcoló démonok eltüntetése
-  for (const e of G.enemies) if (!e.boss && !e.enc && !e.aggro && Math.hypot(e.x - p.x, e.y - p.y) > 2600) e.dead = true;
+  for (const e of G.enemies) if (!e.boss && !e.enc && !e.lair && !e.aggro && Math.hypot(e.x - p.x, e.y - p.y) > 2600) e.dead = true;
   director(dt);
   // főellenség-aréna, portál
   if (G.afterBoss > 0) { G.afterBoss -= dt; if (G.afterBoss <= 0) openChoice('boss', () => { G.portal = { x: G.arenaPoi.x, y: G.arenaPoi.y, t: 0 }; G.arena = null; G.p.arena = null; sfx('holy'); }); }
@@ -620,6 +684,33 @@ function decorSprite(kind, v) {
     case 'spire': shadow(16); g.fillStyle = lg(-14, 14, '#4e3a36', '#1e1412'); g.beginPath(); g.moveTo(-14, 0); g.lineTo(-4, -70 - v * 14); g.lineTo(4, -58 - v * 10); g.lineTo(14, 0); g.fill(); g.strokeStyle = 'rgba(255,110,40,0.55)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-6, -8); g.lineTo(-2, -30); g.lineTo(2, -44); g.stroke(); break;
     case 'crystal': shadow(16); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + (i - 2) * 0.32, h = 26 + r() * 30, x = (i - 2) * 6; g.fillStyle = i % 2 ? '#3a8a64' : '#56b888'; g.beginPath(); g.moveTo(x - 6, 0); g.lineTo(x + Math.cos(a) * h, Math.sin(a) * h); g.lineTo(x + 6, 0); g.fill(); g.fillStyle = 'rgba(220,255,235,0.35)'; g.beginPath(); g.moveTo(x - 2, -2); g.lineTo(x + Math.cos(a) * h * 0.9, Math.sin(a) * h * 0.9); g.lineTo(x + 1, -2); g.fill(); } break;
     case 'mirror': shadow(14); g.fillStyle = '#3a2c22'; g.fillRect(-16, -62, 32, 58); g.fillStyle = lg(-12, 12, '#7aa898', '#2e4a40'); g.fillRect(-12, -58, 24, 50); g.strokeStyle = 'rgba(230,255,245,0.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(-8, -50); g.lineTo(2, -30); g.lineTo(-4, -16); g.moveTo(2, -30); g.lineTo(10, -40); g.stroke(); g.fillStyle = '#3a2c22'; g.fillRect(-4, -4, 8, 4); break;
+    case 'impaled': { shadow(14); g.strokeStyle = '#3a2618'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 0); g.lineTo(-2, -104); g.stroke(); g.strokeStyle = '#1a0e08'; g.lineWidth = 1; g.stroke();
+      const lean = (r() - 0.5) * 0.4; g.save(); g.translate(-1, -64); g.rotate(lean);
+      g.fillStyle = '#6a3a30'; g.strokeStyle = '#140808'; g.lineWidth = 1.2; g.beginPath(); g.ellipse(0, 0, 9, 16, 0, 0, TAU); g.fill(); g.stroke();
+      g.fillStyle = '#5a2a22'; g.beginPath(); g.arc(-2, -20, 7, 0, TAU); g.fill(); g.stroke();
+      g.strokeStyle = '#5a2a22'; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); g.moveTo(-7, -8); g.lineTo(-14, 10); g.moveTo(7, -8); g.lineTo(13, 8); g.moveTo(-4, 14); g.lineTo(-6, 34); g.moveTo(4, 14); g.lineTo(7, 32); g.stroke();
+      g.fillStyle = 'rgba(110,8,8,0.9)'; g.beginPath(); g.ellipse(0, 4, 5, 9, 0, 0, TAU); g.fill(); g.restore();
+      g.fillStyle = '#d8ceb0'; g.beginPath(); g.moveTo(-4, -104); g.lineTo(-2, -116); g.lineTo(0, -104); g.fill();
+      g.strokeStyle = 'rgba(110,8,8,0.85)'; g.lineWidth = 3; g.beginPath(); g.moveTo(-1, -40); g.lineTo(-1, -2); g.stroke(); g.fillStyle = 'rgba(80,4,4,0.7)'; g.beginPath(); g.ellipse(0, 0, 14, 5, 0, 0, TAU); g.fill(); break; }
+    case 'gibbet': { shadow(14); g.strokeStyle = '#2e2014'; g.lineWidth = 5; g.beginPath(); g.moveTo(-14, 0); g.lineTo(-14, -112); g.lineTo(18, -112); g.stroke(); g.lineWidth = 1.2; g.strokeStyle = '#5a5048'; g.beginPath(); g.moveTo(12, -112); g.lineTo(12, -86); g.stroke();
+      g.fillStyle = '#5a3a30'; g.strokeStyle = '#140808'; g.beginPath(); g.ellipse(12, -66, 8, 18, 0.1, 0, TAU); g.fill(); g.stroke(); g.fillStyle = '#4a2a22'; g.beginPath(); g.arc(12, -88, 6, 0, TAU); g.fill(); g.stroke();
+      g.strokeStyle = '#4a2a22'; g.lineWidth = 3.5; g.lineCap = 'round'; g.beginPath(); g.moveTo(9, -50); g.lineTo(7, -30); g.moveTo(15, -50); g.lineTo(16, -32); g.stroke(); g.fillStyle = 'rgba(80,4,4,0.6)'; g.beginPath(); g.ellipse(12, 0, 10, 3, 0, 0, TAU); g.fill(); break; }
+    case 'cage': { shadow(16); g.strokeStyle = '#2e2014'; g.lineWidth = 4; g.beginPath(); g.moveTo(-20, 0); g.lineTo(-20, -118); g.lineTo(4, -118); g.stroke();
+      g.strokeStyle = '#4a4440'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -118); g.lineTo(0, -96); g.stroke();
+      g.fillStyle = 'rgba(40,20,16,0.6)'; g.beginPath(); g.ellipse(0, -70, 14, 26, 0, 0, TAU); g.fill();
+      g.fillStyle = '#d8ceb0'; g.beginPath(); g.arc(-2, -62, 5, 0, TAU); g.fill(); g.fillRect(-5, -56, 6, 14);
+      g.strokeStyle = '#5a5450'; g.lineWidth = 1.6; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * 6, -96); g.quadraticCurveTo(i * 9, -70, i * 6, -44); g.stroke(); } g.beginPath(); g.ellipse(0, -96, 13, 3, 0, 0, TAU); g.ellipse(0, -44, 13, 3, 0, 0, TAU); g.stroke(); break; }
+    case 'skulls': { shadow(24); for (let i = 0; i < 16; i++) { const row = i < 7 ? 0 : i < 12 ? 1 : i < 15 ? 2 : 3, cnt = [7, 5, 3, 1][row], j = (i - [0, 7, 12, 15][row]), x = (j - (cnt - 1) / 2) * 11 + (r() - 0.5) * 2, y = -6 - row * 9;
+        g.fillStyle = r() < 0.5 ? '#d8ceb0' : '#bfb498'; g.strokeStyle = '#2a2018'; g.lineWidth = 0.8; g.beginPath(); g.arc(x, y, 5.5, 0, TAU); g.fill(); g.stroke(); g.fillStyle = '#1a1410'; g.fillRect(x - 3, y - 1, 2, 2); g.fillRect(x + 1, y - 1, 2, 2); g.fillRect(x - 1, y + 2, 2, 1.5); }
+      g.fillStyle = 'rgba(90,6,6,0.6)'; g.beginPath(); g.ellipse(4, -2, 10, 3, 0, 0, TAU); g.fill(); break; }
+    case 'bonepile': { shadow(20); for (let i = 0; i < 12; i++) { const x = (r() - 0.5) * 34, y = -2 - r() * 10, a = r() * 3; g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = '#cfc4a6'; g.fillRect(-8, -1.2, 16, 2.4); g.beginPath(); g.arc(-8, 0, 2, 0, TAU); g.arc(8, 0, 2, 0, TAU); g.fill(); g.restore(); }
+      g.fillStyle = '#d8ceb0'; g.beginPath(); g.arc(6, -12, 5, 0, TAU); g.fill(); g.fillStyle = '#1a1410'; g.fillRect(3, -13, 2, 2); g.fillRect(7, -13, 2, 2); break; }
+    case 'ruinarch': { shadow(40); g.fillStyle = lg(-50, 50, '#6a6470', '#3a3640'); g.strokeStyle = '#141018'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(-48, 0); g.lineTo(-48, -88); g.quadraticCurveTo(-48, -128, 0, -132); g.lineTo(0, -116); g.quadraticCurveTo(-32, -110, -32, -84); g.lineTo(-32, 0); g.closePath(); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(48, 0); g.lineTo(48, -70); g.lineTo(40, -84); g.lineTo(32, -76); g.lineTo(32, 0); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#4a4450'; for (let i = 0; i < 6; i++) { g.fillRect(-46 + r() * 10, -10 - i * 14, 10, 2); }
+      g.fillStyle = 'rgba(90,6,6,0.55)'; g.beginPath(); g.moveTo(-44, -60); g.lineTo(-40, -20); g.lineTo(-36, -60); g.fill();
+      g.fillStyle = '#5a5460'; for (let i = 0; i < 4; i++) { g.beginPath(); g.ellipse(-10 + i * 12 + (r() - 0.5) * 6, -4, 8, 5, r(), 0, TAU); g.fill(); } break; }
     case 'icespike': shadow(14); for (let i = 0; i < 3; i++) { const x = (i - 1) * 9, h = 34 + r() * 34; g.fillStyle = lg(x - 7, x + 7, '#e8eeff', '#8a98c8'); g.beginPath(); g.moveTo(x - 7, 0); g.lineTo(x + (r() - 0.5) * 6, -h); g.lineTo(x + 7, 0); g.fill(); } break;
   }
   SPR[k] = c; return c;
@@ -645,10 +736,16 @@ function drawPoi(o) {
     ctx.fillStyle = '#8a8fa2'; ctx.fillRect(o.x - 22, o.y - 30, 44, 28); ctx.fillStyle = '#5a5e70'; ctx.fillRect(o.x - 22, o.y - 30, 44, 4);
     if (!o.taken) { const y = o.y - 46 + Math.sin(t * 2) * 3; ctx.fillStyle = c1; ctx.font = `26px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(gold ? '✦' : '✠', o.x, y); ctx.font = `12px ${SANS}`; ctx.fillStyle = '#e8e2d0'; ctx.fillText(gold ? 'Égi Oltár — lépj elé' : 'Ereklyék oltára — lépj elé', o.x, o.y + 40); }
   } else if (o.type === 'shop') {
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 22, 70, 16, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#3e3044'; ctx.beginPath(); ctx.moveTo(o.x - 64, o.y + 20); ctx.lineTo(o.x, o.y - 56); ctx.lineTo(o.x + 64, o.y + 20); ctx.fill();
-    ctx.fillStyle = '#5e4a66'; ctx.beginPath(); ctx.moveTo(o.x - 64, o.y + 20); ctx.lineTo(o.x, o.y - 56); ctx.lineTo(o.x, o.y + 20); ctx.fill();
-    ctx.fillStyle = '#1a1220'; ctx.beginPath(); ctx.moveTo(o.x - 16, o.y + 20); ctx.lineTo(o.x, o.y - 14); ctx.lineTo(o.x + 16, o.y + 20); ctx.fill();
+    // Menedék: cölöpkerítés, lámpások, szőnyeg, pult, ponyvasátor
+    ctx.fillStyle = 'rgba(70,52,40,0.55)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 40, 150, 70, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#5a1e1a'; ctx.fillRect(o.x - 70, o.y + 30, 140, 50); ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 2; ctx.strokeRect(o.x - 66, o.y + 34, 132, 42);
+    for (let k = 0; k < 22; k++) { const a = Math.PI * 0.62 + k / 21 * Math.PI * 1.76, x = o.x + Math.cos(a) * 185, y = o.y + 30 + Math.sin(a) * 105; ctx.fillStyle = '#2e2016'; ctx.fillRect(x - 3, y - 26, 6, 28); ctx.fillStyle = '#4a3420'; ctx.beginPath(); ctx.moveTo(x - 3, y - 26); ctx.lineTo(x, y - 33); ctx.lineTo(x + 3, y - 26); ctx.fill(); if (k % 7 === 3) { ctx.fillStyle = '#d8a050'; ctx.beginPath(); ctx.arc(x, y - 36, 4, 0, TAU); ctx.fill(); } }
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 22, 80, 16, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#3e2a22'; ctx.beginPath(); ctx.moveTo(o.x - 74, o.y + 20); ctx.lineTo(o.x, o.y - 62); ctx.lineTo(o.x + 74, o.y + 20); ctx.fill();
+    ctx.fillStyle = '#5e4232'; ctx.beginPath(); ctx.moveTo(o.x - 74, o.y + 20); ctx.lineTo(o.x, o.y - 62); ctx.lineTo(o.x, o.y + 20); ctx.fill();
+    ctx.strokeStyle = '#2a1a12'; ctx.lineWidth = 1; for (let k = -3; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(o.x, o.y - 62); ctx.lineTo(o.x + k * 22, o.y + 20); ctx.stroke(); }
+    ctx.fillStyle = '#140c0a'; ctx.beginPath(); ctx.moveTo(o.x - 18, o.y + 20); ctx.lineTo(o.x, o.y - 18); ctx.lineTo(o.x + 18, o.y + 20); ctx.fill();
+    ctx.fillStyle = '#4a3020'; ctx.fillRect(o.x - 130, o.y + 74, 260, 10); ctx.fillStyle = '#2e1e14'; ctx.fillRect(o.x - 126, o.y + 84, 6, 14); ctx.fillRect(o.x + 120, o.y + 84, 6, 14);
     drawNpc({ x: o.x, y: o.y + 6, name: 'A Bűnbánó Kalmár', look: 'soul' }, true);
     if (o.items) for (const it of o.items) {
       ctx.fillStyle = '#2a2430'; ctx.fillRect(it.x - 18, it.y + 6, 36, 10);

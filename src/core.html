@@ -49,19 +49,19 @@ function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >
 
 // ---------- adatok ----------
 const RINGS = [
-  { name: 'Bujaság', latin: 'Luxuria', col: '#ff4fa3', floor: '#1e0b17', wall: '#3d0f2c', body: '#5a1238', enemies: ['imp', 'wisp', 'spitter'],
+  { name: 'Bujaság', latin: 'Luxuria', col: '#b8435e', floor: '#1e0b17', wall: '#3d0f2c', body: '#4a1a22', enemies: ['imp', 'wisp', 'spitter'],
     verse: 'Itt a vágy szele örvénylik, s a lelkek sosem nyugszanak.' },
-  { name: 'Torkosság', latin: 'Gula', col: '#b8d43a', floor: '#171a09', wall: '#33380f', body: '#3d4512', enemies: ['splitter', 'imp', 'brute'],
+  { name: 'Torkosság', latin: 'Gula', col: '#8f9a3c', floor: '#171a09', wall: '#33380f', body: '#3a3a1a', enemies: ['splitter', 'imp', 'brute'],
     verse: 'Fekete eső hull, s a mohóság sosem lakik jól.' },
-  { name: 'Fösvénység', latin: 'Avaritia', col: '#ffc23a', floor: '#1c1406', wall: '#47300c', body: '#5a3f0e', enemies: ['turret', 'teleporter', 'imp'],
+  { name: 'Fösvénység', latin: 'Avaritia', col: '#c2963c', floor: '#1c1406', wall: '#47300c', body: '#4a3618', enemies: ['turret', 'teleporter', 'imp'],
     verse: 'Aranyhegyek alatt nyögnek, akik sosem adtak.' },
-  { name: 'Restség', latin: 'Acedia', col: '#8fb0e0', floor: '#0f131b', wall: '#232b3b', body: '#2c3a55', enemies: ['brute', 'turret', 'wisp'],
+  { name: 'Restség', latin: 'Acedia', col: '#6f86a6', floor: '#0f131b', wall: '#232b3b', body: '#2a3240', enemies: ['brute', 'turret', 'wisp'],
     verse: 'A mocsár ködében alszik a tett, amely sosem született meg.' },
-  { name: 'Harag', latin: 'Ira', col: '#ff4a24', floor: '#1f0805', wall: '#4f1107', body: '#661608', enemies: ['imp', 'brute', 'spitter'],
+  { name: 'Harag', latin: 'Ira', col: '#c2401f', floor: '#1f0805', wall: '#4f1107', body: '#4a1a10', enemies: ['imp', 'brute', 'spitter'],
     verse: 'Lángoló folyó, ahol a düh önmagát emészti.' },
-  { name: 'Irigység', latin: 'Invidia', col: '#3ddc84', floor: '#08180f', wall: '#0f3a24', body: '#11482b', enemies: ['teleporter', 'wisp', 'splitter'],
+  { name: 'Irigység', latin: 'Invidia', col: '#3e9468', floor: '#08180f', wall: '#0f3a24', body: '#1c3a2a', enemies: ['teleporter', 'wisp', 'splitter'],
     verse: 'Zöld szemek lesnek mindenhonnan — mindenki a másét akarja.' },
-  { name: 'Kevélység', latin: 'Superbia', col: '#c08bff', floor: '#110a1e', wall: '#2a1948', body: '#3a2266', enemies: ['spitter', 'teleporter', 'brute', 'wisp', 'turret'],
+  { name: 'Kevélység', latin: 'Superbia', col: '#8a6aae', floor: '#110a1e', wall: '#2a1948', body: '#30264a', enemies: ['spitter', 'teleporter', 'brute', 'wisp', 'turret'],
     verse: 'A legmélyebb jég. Itt trónol az, aki Isten fölé akart emelkedni.' },
 ];
 
@@ -83,8 +83,8 @@ const WEAPONS = {};   // id -> { n, short, kind:'melee'|'ranged', d, col, update
 const RELICS = {};    // id -> { n, d, i, col, rar, apply?() }
 const LEVELS = {};    // ri -> { intro, rooms:[...], bossTalk } ; LEVELS.hub, LEVELS.epilogue
 const UPG = {};       // offers(src, n) -> ajánlatok listája
-const PAL = { holy: '#ffe9a8', gold: '#ffd75e', white: '#fff8e8', soul: '#8fe8ff', blood: '#ff3348', fire: '#ff7a2a', ember: '#ffb04a',
-  void: '#b04fff', frost: '#bfe6ff', storm: '#9fd8ff', life: '#7cff9a', rose: '#ff7ac0', shadow: '#2a1640', bone: '#e8e0c8' };
+const PAL = { holy: '#f0dca0', gold: '#d8b050', white: '#f0e8dc', soul: '#9fd0dc', blood: '#9a1414', fire: '#d8642a', ember: '#d8903a',
+  void: '#7a4aa0', frost: '#b0c8dc', storm: '#8fb0c8', life: '#7cbf8a', rose: '#c0607a', shadow: '#2a1620', bone: '#d8d0b8', gore: '#5a0a0a', flesh: '#8a3a2e' };
 const RAR = { common: { n: 'Közönséges', c: '#c9c2b0' }, rare: { n: 'Ritka', c: '#6fb8ff' }, epic: { n: 'Epikus', c: '#c07bff' },
   legend: { n: 'Legendás', c: '#ffcf4a' }, morph: { n: 'Átalakulás', c: '#ff5ad1' }, relic: { n: 'Ereklye', c: '#5cf0a0' } };
 const HOOKS = {};
@@ -684,9 +684,7 @@ function dmgEnemy(e, d, cr, nova, o) {
 function killEnemy(e, silent) {
   if (e.dead) return; e.dead = true;
   const col = RG().col;
-  part(e.x, e.y, col, e.boss ? 160 : 18, e.boss ? 500 : 200, e.boss ? 1.6 : 0.6, e.boss ? 6 : 3.5);
-  part(e.x, e.y, '#000', 8, 120, 0.6, 5);
-  G.waves.push({ x: e.x, y: e.y, r: e.r, big: e.boss ? 420 : 60, t: 0, col: col });
+  if (e.boss) { part(e.x, e.y, col, 60, 400, 1.4, 5); G.waves.push({ x: e.x, y: e.y, r: e.r, big: 420, t: 0, col: col }); }
   if (silent) return;
   G.kills++; sfx('kill');
   emit('kill', e);
@@ -786,14 +784,16 @@ function update(dt) {
   // ellenségek
   for (let i = 0; i < G.enemies.length; i++) updEnemy(G.enemies[i], dt);
   const en = G.enemies;
-  for (let i = 0; i < en.length; i++) for (let j = i + 1; j < en.length; j++) {
-    const a = en[i], b = en[j]; if (a.boss || b.boss || a.dead || b.dead || Math.abs(a.x - b.x) > 60 || Math.abs(a.y - b.y) > 60) continue;
+  const near = en.filter(e => !e.dead && !e.boss && Math.abs(e.x - G.p.x) < 1100 && Math.abs(e.y - G.p.y) < 800);
+  for (let i = 0; i < near.length; i++) for (let j = i + 1; j < near.length; j++) {
+    const a = near[i], b = near[j]; if (Math.abs(a.x - b.x) > 60 || Math.abs(a.y - b.y) > 60) continue;
     const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), m = a.r + b.r;
     if (d < m && d > 0.01) { const k = (m - d) / d * 0.5; a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k; }
   }
   G.enemies = G.enemies.filter(e => !e.dead);
 
   updateBullets(dt);
+  goreUpdate(dt);
   for (const f of G.fx) if (!f.dead && f.upd(dt) === false) f.dead = true;
   G.fx = G.fx.filter(f => !f.dead);
 
@@ -1046,77 +1046,6 @@ function drawAngel(x, y, face, t, dark, alpha, scale = 1, weapon = null, swing =
   ctx.restore();
 }
 
-function drawBoss(b) {
-  const rg = RINGS[b.ri], col = rg.col, r = b.r, fl = b.flash > 0, a = angTo(b, G.p);
-  if (b.tele != null) {
-    ctx.strokeStyle = 'rgba(255,40,40,0.35)'; ctx.lineWidth = r * 1.8;
-    ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + Math.cos(b.tele) * 900, b.y + Math.sin(b.tele) * 900); ctx.stroke();
-  }
-  if (b.key === 'leviathan') {
-    for (let i = b.trail.length - 1; i > 0; i -= 4) {
-      const q = b.trail[i], k = 1 - i / 60;
-      ctx.globalAlpha = b.alpha * 0.9; ctx.fillStyle = i % 8 === 0 ? rg.body : col;
-      ctx.beginPath(); ctx.arc(q.x, q.y, r * (0.4 + k * 0.5), 0, TAU); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-  ctx.save(); ctx.translate(b.x, b.y); ctx.globalAlpha = b.alpha * (b.inv > 0 ? 0.6 + Math.sin(gt * 30) * 0.3 : 1);
-  if (b.intro > 0) { const k = Math.min(1, (2.6 - b.intro) / 1.2); ctx.scale(k, k); }
-  // aura
-  const pulse = 1 + Math.sin(gt * 4) * 0.08;
-  const au = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 2.4 * pulse);
-  au.addColorStop(0, hexA(col, 0.18)); au.addColorStop(1, hexA(col, 0));
-  ctx.fillStyle = au; ctx.beginPath(); ctx.arc(0, 0, r * 2.4 * pulse, 0, TAU); ctx.fill();
-  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(0, r * 0.9, r * 1.1, r * 0.35, 0, 0, TAU); ctx.fill();
-  if (b.key === 'lucifer') {
-    // hat bukott szárny
-    for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
-      ctx.save(); ctx.scale(s, 1); ctx.rotate(-0.7 + k * 0.55 + Math.sin(gt * 2 + k) * 0.08);
-      const wg = ctx.createLinearGradient(0, 0, r * 2.6, 0); wg.addColorStop(0, '#1a0b2e'); wg.addColorStop(1, b.phase === 3 ? '#ff4a24' : '#6a3ab0');
-      ctx.fillStyle = wg; ctx.beginPath(); ctx.moveTo(r * 0.3, 0);
-      ctx.quadraticCurveTo(r * 1.4, -r * 0.6, r * 2.6, -r * 0.1);
-      for (let j = 0; j < 4; j++) { ctx.lineTo(r * (2.3 - j * 0.45), r * 0.05 + (j % 2) * 4); ctx.lineTo(r * (2.1 - j * 0.45), -r * 0.12); }
-      ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(255,215,94,0.35)'; ctx.lineWidth = 1; ctx.stroke();
-      ctx.restore();
-    }
-  }
-  if (b.key === 'beelzebub') {
-    for (let i = 0; i < 10; i++) { const q = gt * 3 + i * 0.63; ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(Math.cos(q) * r * 1.5, Math.sin(q * 1.3) * r * 1.2, 2.5, 0, TAU); ctx.fill(); }
-  }
-  // szarvak
-  ctx.fillStyle = fl ? '#fff' : (b.key === 'lucifer' ? '#0d0618' : '#160808');
-  for (const s of [-1, 1]) {
-    ctx.beginPath(); ctx.moveTo(s * r * 0.45, -r * 0.7);
-    ctx.quadraticCurveTo(s * r * 1.5, -r * 1.2, s * r * 1.1, -r * 2.0);
-    ctx.quadraticCurveTo(s * r * 0.9, -r * 1.3, s * r * 0.15, -r * 0.85); ctx.fill();
-  }
-  // test
-  const gr = ctx.createRadialGradient(-r * 0.3, -r * 0.4, 2, 0, 0, r * 1.2);
-  gr.addColorStop(0, fl ? '#fff' : col); gr.addColorStop(0.6, fl ? '#fff' : rg.body); gr.addColorStop(1, '#050005');
-  ctx.fillStyle = gr; ctx.strokeStyle = hexA(col, 0.9); ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  if (b.key === 'belphegor') ctx.ellipse(0, r * 0.1, r * 1.15, r * 0.95, 0, 0, TAU);
-  else ctx.arc(0, 0, r, 0, TAU);
-  ctx.fill(); ctx.stroke();
-  // korona (Mammon, Lucifer)
-  if (b.key === 'mammon' || b.key === 'lucifer') {
-    ctx.fillStyle = '#ffd75e'; ctx.shadowColor = '#ffd75e'; ctx.shadowBlur = 10;
-    ctx.beginPath(); ctx.moveTo(-r * 0.6, -r * 0.75);
-    for (let i = 0; i <= 4; i++) { ctx.lineTo(-r * 0.6 + i * r * 0.3, -r * (i % 2 ? 1.0 : 1.35)); }
-    ctx.lineTo(r * 0.6, -r * 0.75); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
-  }
-  // szemek
-  const ox = Math.cos(a) * r * 0.15, oy = Math.sin(a) * r * 0.1, ec = b.key === 'lucifer' ? (b.phase === 3 ? '#ff4a24' : '#ffffff') : '#fff36a';
-  ctx.fillStyle = ec; ctx.shadowColor = ec; ctx.shadowBlur = 14;
-  ctx.beginPath();
-  ctx.ellipse(-r * 0.35 + ox, -r * 0.15 + oy, r * 0.2, r * 0.09, 0.3, 0, TAU);
-  ctx.ellipse(r * 0.35 + ox, -r * 0.15 + oy, r * 0.2, r * 0.09, -0.3, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
-  ctx.fillStyle = '#100'; ctx.beginPath(); ctx.moveTo(-r * 0.4, r * 0.35); ctx.quadraticCurveTo(0, r * (0.6 + (b.atk ? 0.15 : 0)), r * 0.4, r * 0.35); ctx.quadraticCurveTo(0, r * 0.45, -r * 0.4, r * 0.35); ctx.fill();
-  ctx.fillStyle = '#eee';
-  for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * r * 0.13 - 3, r * 0.38); ctx.lineTo(i * r * 0.13 + 3, r * 0.38); ctx.lineTo(i * r * 0.13, r * 0.48); ctx.fill(); }
-  ctx.restore();
-}
-
 function drawGame() {
   const p = G.p, sh = G.shake, ox = rand(-sh, sh) * 0.6, oy = rand(-sh, sh) * 0.6;
   ctx.save();
@@ -1145,6 +1074,7 @@ function drawGame() {
       ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, TAU); ctx.fill();
     }
   }
+  drawGoreUnder();
   for (const f of G.fx) if (f.under && f.drw) f.drw();
   // a démonok támadásjelzései
   for (const e of G.enemies) if (e.act) drawTelegraph(e);
@@ -1182,6 +1112,7 @@ function drawGame() {
   } });
   list.sort((a, b) => a.y - b.y);
   for (const it of list) it.f();
+  drawGoreOver();
   // portál
   if (G.portal) {
     const pt = G.portal, k = Math.min(1, pt.t);
@@ -1299,7 +1230,7 @@ function drawBloom() {
     glowDot(p.x, p.y - 25, 8, '#ffd75e', 0.35);
     for (let i = 0; i < p.orbs; i++) { const a = G.orbA + i * TAU / p.orbs; glowDot(p.x + Math.cos(a) * 48, p.y + Math.sin(a) * 48, 14, '#ffd75e', 0.9); }
   }
-  for (const b of G.bullets) if (!b.dark) glowDot(b.x, b.y, b.r * 2.4, b.f ? '#ffe9a8' : b.col, b.f ? 0.7 : 0.8);
+  for (const b of G.bullets) if (!b.dark && b.x > L && b.x < R && b.y > T && b.y < B) glowDot(b.x, b.y, b.r * 2, b.f ? '#f0dca0' : b.col, b.f ? 0.4 : 0.2);
   for (const q of G.parts) if (q.col !== '#000' && !q.ghost && q.kind !== 'feather') glowDot(q.x, q.y, q.size * 1.2, q.col, q.life / q.max * 0.4);
   for (const e of G.enemies) { if (e.dead || e.spawn > 0 || e.x < L - 50 || e.x > R + 50 || e.y < T - 50 || e.y > B + 50) continue; if (e.boss) glowDot(e.x, e.y, e.r * 1.4, RINGS[e.ri].col, 0.25); }
   for (const k of G.pickupsAll) if (k.type === 'soul' && k.x > L && k.x < R && k.y > T && k.y < B) glowDot(k.x, k.y, 7, '#8fe8ff', 0.5);
