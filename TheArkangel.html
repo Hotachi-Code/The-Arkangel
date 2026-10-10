@@ -49,19 +49,19 @@ function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >
 
 // ---------- adatok ----------
 const RINGS = [
-  { name: 'Bujaság', latin: 'Luxuria', col: '#ff4fa3', floor: '#1e0b17', wall: '#3d0f2c', body: '#5a1238', enemies: ['imp', 'wisp', 'spitter'],
+  { name: 'Bujaság', latin: 'Luxuria', col: '#b8435e', floor: '#1e0b17', wall: '#3d0f2c', body: '#4a1a22', enemies: ['imp', 'wisp', 'spitter'],
     verse: 'Itt a vágy szele örvénylik, s a lelkek sosem nyugszanak.' },
-  { name: 'Torkosság', latin: 'Gula', col: '#b8d43a', floor: '#171a09', wall: '#33380f', body: '#3d4512', enemies: ['splitter', 'imp', 'brute'],
+  { name: 'Torkosság', latin: 'Gula', col: '#8f9a3c', floor: '#171a09', wall: '#33380f', body: '#3a3a1a', enemies: ['splitter', 'imp', 'brute'],
     verse: 'Fekete eső hull, s a mohóság sosem lakik jól.' },
-  { name: 'Fösvénység', latin: 'Avaritia', col: '#ffc23a', floor: '#1c1406', wall: '#47300c', body: '#5a3f0e', enemies: ['turret', 'teleporter', 'imp'],
+  { name: 'Fösvénység', latin: 'Avaritia', col: '#c2963c', floor: '#1c1406', wall: '#47300c', body: '#4a3618', enemies: ['turret', 'teleporter', 'imp'],
     verse: 'Aranyhegyek alatt nyögnek, akik sosem adtak.' },
-  { name: 'Restség', latin: 'Acedia', col: '#8fb0e0', floor: '#0f131b', wall: '#232b3b', body: '#2c3a55', enemies: ['brute', 'turret', 'wisp'],
+  { name: 'Restség', latin: 'Acedia', col: '#6f86a6', floor: '#0f131b', wall: '#232b3b', body: '#2a3240', enemies: ['brute', 'turret', 'wisp'],
     verse: 'A mocsár ködében alszik a tett, amely sosem született meg.' },
-  { name: 'Harag', latin: 'Ira', col: '#ff4a24', floor: '#1f0805', wall: '#4f1107', body: '#661608', enemies: ['imp', 'brute', 'spitter'],
+  { name: 'Harag', latin: 'Ira', col: '#c2401f', floor: '#1f0805', wall: '#4f1107', body: '#4a1a10', enemies: ['imp', 'brute', 'spitter'],
     verse: 'Lángoló folyó, ahol a düh önmagát emészti.' },
-  { name: 'Irigység', latin: 'Invidia', col: '#3ddc84', floor: '#08180f', wall: '#0f3a24', body: '#11482b', enemies: ['teleporter', 'wisp', 'splitter'],
+  { name: 'Irigység', latin: 'Invidia', col: '#3e9468', floor: '#08180f', wall: '#0f3a24', body: '#1c3a2a', enemies: ['teleporter', 'wisp', 'splitter'],
     verse: 'Zöld szemek lesnek mindenhonnan — mindenki a másét akarja.' },
-  { name: 'Kevélység', latin: 'Superbia', col: '#c08bff', floor: '#110a1e', wall: '#2a1948', body: '#3a2266', enemies: ['spitter', 'teleporter', 'brute', 'wisp', 'turret'],
+  { name: 'Kevélység', latin: 'Superbia', col: '#8a6aae', floor: '#110a1e', wall: '#2a1948', body: '#30264a', enemies: ['spitter', 'teleporter', 'brute', 'wisp', 'turret'],
     verse: 'A legmélyebb jég. Itt trónol az, aki Isten fölé akart emelkedni.' },
 ];
 
@@ -83,8 +83,8 @@ const WEAPONS = {};   // id -> { n, short, kind:'melee'|'ranged', d, col, update
 const RELICS = {};    // id -> { n, d, i, col, rar, apply?() }
 const LEVELS = {};    // ri -> { intro, rooms:[...], bossTalk } ; LEVELS.hub, LEVELS.epilogue
 const UPG = {};       // offers(src, n) -> ajánlatok listája
-const PAL = { holy: '#ffe9a8', gold: '#ffd75e', white: '#fff8e8', soul: '#8fe8ff', blood: '#ff3348', fire: '#ff7a2a', ember: '#ffb04a',
-  void: '#b04fff', frost: '#bfe6ff', storm: '#9fd8ff', life: '#7cff9a', rose: '#ff7ac0', shadow: '#2a1640', bone: '#e8e0c8' };
+const PAL = { holy: '#f0dca0', gold: '#d8b050', white: '#f0e8dc', soul: '#9fd0dc', blood: '#9a1414', fire: '#d8642a', ember: '#d8903a',
+  void: '#7a4aa0', frost: '#b0c8dc', storm: '#8fb0c8', life: '#7cbf8a', rose: '#c0607a', shadow: '#2a1620', bone: '#d8d0b8', gore: '#5a0a0a', flesh: '#8a3a2e' };
 const RAR = { common: { n: 'Közönséges', c: '#c9c2b0' }, rare: { n: 'Ritka', c: '#6fb8ff' }, epic: { n: 'Epikus', c: '#c07bff' },
   legend: { n: 'Legendás', c: '#ffcf4a' }, morph: { n: 'Átalakulás', c: '#ff5ad1' }, relic: { n: 'Ereklye', c: '#5cf0a0' } };
 const HOOKS = {};
@@ -684,9 +684,7 @@ function dmgEnemy(e, d, cr, nova, o) {
 function killEnemy(e, silent) {
   if (e.dead) return; e.dead = true;
   const col = RG().col;
-  part(e.x, e.y, col, e.boss ? 160 : 18, e.boss ? 500 : 200, e.boss ? 1.6 : 0.6, e.boss ? 6 : 3.5);
-  part(e.x, e.y, '#000', 8, 120, 0.6, 5);
-  G.waves.push({ x: e.x, y: e.y, r: e.r, big: e.boss ? 420 : 60, t: 0, col: col });
+  if (e.boss) { part(e.x, e.y, col, 60, 400, 1.4, 5); G.waves.push({ x: e.x, y: e.y, r: e.r, big: 420, t: 0, col: col }); }
   if (silent) return;
   G.kills++; sfx('kill');
   emit('kill', e);
@@ -786,14 +784,16 @@ function update(dt) {
   // ellenségek
   for (let i = 0; i < G.enemies.length; i++) updEnemy(G.enemies[i], dt);
   const en = G.enemies;
-  for (let i = 0; i < en.length; i++) for (let j = i + 1; j < en.length; j++) {
-    const a = en[i], b = en[j]; if (a.boss || b.boss || a.dead || b.dead || Math.abs(a.x - b.x) > 60 || Math.abs(a.y - b.y) > 60) continue;
+  const near = en.filter(e => !e.dead && !e.boss && Math.abs(e.x - G.p.x) < 1100 && Math.abs(e.y - G.p.y) < 800);
+  for (let i = 0; i < near.length; i++) for (let j = i + 1; j < near.length; j++) {
+    const a = near[i], b = near[j]; if (Math.abs(a.x - b.x) > 60 || Math.abs(a.y - b.y) > 60) continue;
     const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), m = a.r + b.r;
     if (d < m && d > 0.01) { const k = (m - d) / d * 0.5; a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k; }
   }
   G.enemies = G.enemies.filter(e => !e.dead);
 
   updateBullets(dt);
+  goreUpdate(dt);
   for (const f of G.fx) if (!f.dead && f.upd(dt) === false) f.dead = true;
   G.fx = G.fx.filter(f => !f.dead);
 
@@ -1046,77 +1046,6 @@ function drawAngel(x, y, face, t, dark, alpha, scale = 1, weapon = null, swing =
   ctx.restore();
 }
 
-function drawBoss(b) {
-  const rg = RINGS[b.ri], col = rg.col, r = b.r, fl = b.flash > 0, a = angTo(b, G.p);
-  if (b.tele != null) {
-    ctx.strokeStyle = 'rgba(255,40,40,0.35)'; ctx.lineWidth = r * 1.8;
-    ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x + Math.cos(b.tele) * 900, b.y + Math.sin(b.tele) * 900); ctx.stroke();
-  }
-  if (b.key === 'leviathan') {
-    for (let i = b.trail.length - 1; i > 0; i -= 4) {
-      const q = b.trail[i], k = 1 - i / 60;
-      ctx.globalAlpha = b.alpha * 0.9; ctx.fillStyle = i % 8 === 0 ? rg.body : col;
-      ctx.beginPath(); ctx.arc(q.x, q.y, r * (0.4 + k * 0.5), 0, TAU); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-  ctx.save(); ctx.translate(b.x, b.y); ctx.globalAlpha = b.alpha * (b.inv > 0 ? 0.6 + Math.sin(gt * 30) * 0.3 : 1);
-  if (b.intro > 0) { const k = Math.min(1, (2.6 - b.intro) / 1.2); ctx.scale(k, k); }
-  // aura
-  const pulse = 1 + Math.sin(gt * 4) * 0.08;
-  const au = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 2.4 * pulse);
-  au.addColorStop(0, hexA(col, 0.18)); au.addColorStop(1, hexA(col, 0));
-  ctx.fillStyle = au; ctx.beginPath(); ctx.arc(0, 0, r * 2.4 * pulse, 0, TAU); ctx.fill();
-  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(0, r * 0.9, r * 1.1, r * 0.35, 0, 0, TAU); ctx.fill();
-  if (b.key === 'lucifer') {
-    // hat bukott szárny
-    for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
-      ctx.save(); ctx.scale(s, 1); ctx.rotate(-0.7 + k * 0.55 + Math.sin(gt * 2 + k) * 0.08);
-      const wg = ctx.createLinearGradient(0, 0, r * 2.6, 0); wg.addColorStop(0, '#1a0b2e'); wg.addColorStop(1, b.phase === 3 ? '#ff4a24' : '#6a3ab0');
-      ctx.fillStyle = wg; ctx.beginPath(); ctx.moveTo(r * 0.3, 0);
-      ctx.quadraticCurveTo(r * 1.4, -r * 0.6, r * 2.6, -r * 0.1);
-      for (let j = 0; j < 4; j++) { ctx.lineTo(r * (2.3 - j * 0.45), r * 0.05 + (j % 2) * 4); ctx.lineTo(r * (2.1 - j * 0.45), -r * 0.12); }
-      ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(255,215,94,0.35)'; ctx.lineWidth = 1; ctx.stroke();
-      ctx.restore();
-    }
-  }
-  if (b.key === 'beelzebub') {
-    for (let i = 0; i < 10; i++) { const q = gt * 3 + i * 0.63; ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(Math.cos(q) * r * 1.5, Math.sin(q * 1.3) * r * 1.2, 2.5, 0, TAU); ctx.fill(); }
-  }
-  // szarvak
-  ctx.fillStyle = fl ? '#fff' : (b.key === 'lucifer' ? '#0d0618' : '#160808');
-  for (const s of [-1, 1]) {
-    ctx.beginPath(); ctx.moveTo(s * r * 0.45, -r * 0.7);
-    ctx.quadraticCurveTo(s * r * 1.5, -r * 1.2, s * r * 1.1, -r * 2.0);
-    ctx.quadraticCurveTo(s * r * 0.9, -r * 1.3, s * r * 0.15, -r * 0.85); ctx.fill();
-  }
-  // test
-  const gr = ctx.createRadialGradient(-r * 0.3, -r * 0.4, 2, 0, 0, r * 1.2);
-  gr.addColorStop(0, fl ? '#fff' : col); gr.addColorStop(0.6, fl ? '#fff' : rg.body); gr.addColorStop(1, '#050005');
-  ctx.fillStyle = gr; ctx.strokeStyle = hexA(col, 0.9); ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  if (b.key === 'belphegor') ctx.ellipse(0, r * 0.1, r * 1.15, r * 0.95, 0, 0, TAU);
-  else ctx.arc(0, 0, r, 0, TAU);
-  ctx.fill(); ctx.stroke();
-  // korona (Mammon, Lucifer)
-  if (b.key === 'mammon' || b.key === 'lucifer') {
-    ctx.fillStyle = '#ffd75e'; ctx.shadowColor = '#ffd75e'; ctx.shadowBlur = 10;
-    ctx.beginPath(); ctx.moveTo(-r * 0.6, -r * 0.75);
-    for (let i = 0; i <= 4; i++) { ctx.lineTo(-r * 0.6 + i * r * 0.3, -r * (i % 2 ? 1.0 : 1.35)); }
-    ctx.lineTo(r * 0.6, -r * 0.75); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
-  }
-  // szemek
-  const ox = Math.cos(a) * r * 0.15, oy = Math.sin(a) * r * 0.1, ec = b.key === 'lucifer' ? (b.phase === 3 ? '#ff4a24' : '#ffffff') : '#fff36a';
-  ctx.fillStyle = ec; ctx.shadowColor = ec; ctx.shadowBlur = 14;
-  ctx.beginPath();
-  ctx.ellipse(-r * 0.35 + ox, -r * 0.15 + oy, r * 0.2, r * 0.09, 0.3, 0, TAU);
-  ctx.ellipse(r * 0.35 + ox, -r * 0.15 + oy, r * 0.2, r * 0.09, -0.3, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
-  ctx.fillStyle = '#100'; ctx.beginPath(); ctx.moveTo(-r * 0.4, r * 0.35); ctx.quadraticCurveTo(0, r * (0.6 + (b.atk ? 0.15 : 0)), r * 0.4, r * 0.35); ctx.quadraticCurveTo(0, r * 0.45, -r * 0.4, r * 0.35); ctx.fill();
-  ctx.fillStyle = '#eee';
-  for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * r * 0.13 - 3, r * 0.38); ctx.lineTo(i * r * 0.13 + 3, r * 0.38); ctx.lineTo(i * r * 0.13, r * 0.48); ctx.fill(); }
-  ctx.restore();
-}
-
 function drawGame() {
   const p = G.p, sh = G.shake, ox = rand(-sh, sh) * 0.6, oy = rand(-sh, sh) * 0.6;
   ctx.save();
@@ -1145,6 +1074,7 @@ function drawGame() {
       ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, TAU); ctx.fill();
     }
   }
+  drawGoreUnder();
   for (const f of G.fx) if (f.under && f.drw) f.drw();
   // a démonok támadásjelzései
   for (const e of G.enemies) if (e.act) drawTelegraph(e);
@@ -1182,6 +1112,7 @@ function drawGame() {
   } });
   list.sort((a, b) => a.y - b.y);
   for (const it of list) it.f();
+  drawGoreOver();
   // portál
   if (G.portal) {
     const pt = G.portal, k = Math.min(1, pt.t);
@@ -1299,7 +1230,7 @@ function drawBloom() {
     glowDot(p.x, p.y - 25, 8, '#ffd75e', 0.35);
     for (let i = 0; i < p.orbs; i++) { const a = G.orbA + i * TAU / p.orbs; glowDot(p.x + Math.cos(a) * 48, p.y + Math.sin(a) * 48, 14, '#ffd75e', 0.9); }
   }
-  for (const b of G.bullets) if (!b.dark) glowDot(b.x, b.y, b.r * 2.4, b.f ? '#ffe9a8' : b.col, b.f ? 0.7 : 0.8);
+  for (const b of G.bullets) if (!b.dark && b.x > L && b.x < R && b.y > T && b.y < B) glowDot(b.x, b.y, b.r * 2, b.f ? '#f0dca0' : b.col, b.f ? 0.4 : 0.2);
   for (const q of G.parts) if (q.col !== '#000' && !q.ghost && q.kind !== 'feather') glowDot(q.x, q.y, q.size * 1.2, q.col, q.life / q.max * 0.4);
   for (const e of G.enemies) { if (e.dead || e.spawn > 0 || e.x < L - 50 || e.x > R + 50 || e.y < T - 50 || e.y > B + 50) continue; if (e.boss) glowDot(e.x, e.y, e.r * 1.4, RINGS[e.ri].col, 0.25); }
   for (const k of G.pickupsAll) if (k.type === 'soul' && k.x > L && k.x < R && k.y > T && k.y < B) glowDot(k.x, k.y, 7, '#8fe8ff', 0.5);
@@ -1694,7 +1625,7 @@ function frame(now) {
 //  A Purgatórium középen áll; körülötte hat bűn tája, északon a lezárt Kevélység.
 //  A térkép rögzített magból épül (mindig ugyanaz a világ), a találkozások véletlenek.
 // =====================================================================
-const TS = 40, MW = 168, MH = 128, VIEW_H = H - 64, CHUNK = 16;
+const TS = 40, MW = 300, MH = 230, VIEW_H = H - 64, CHUNK = 16;
 const CAM = { x: 0, y: 0 };
 const K_GROUND = 0, K_ROCK = 1, K_LIQ = 2, K_SLOW = 3, K_ABYSS = 4, K_GATE = 5;
 let WORLD = null;
@@ -1710,12 +1641,12 @@ function makeNoise(seed) {
 
 // tájak: ri 0..6 a bűnök, 7 a Purgatórium. tx, ty = középpont csempében
 // a tájak a Purgatórium körüli szögcikkelyek: a Kevélység északon, a többi hat óramutató szerint
-const CXT = 84, CYT = 66, ASP = 1.32;
+const CXT = 150, CYT = 116, ASP = 1.32, RS = 1.8;   // RS: a táj méretaránya
 const REG_ANG = { 6: -Math.PI / 2 };
 for (let k = 0; k < 6; k++) REG_ANG[k] = -Math.PI / 2 + (k + 1) * TAU / 7;
-const REGIONS = [0, 1, 2, 3, 4, 5, 6].map(ri => ({ ri, tx: Math.round(CXT + Math.cos(REG_ANG[ri]) * 34 * ASP), ty: Math.round(CYT + Math.sin(REG_ANG[ri]) * 34) }));
+const REGIONS = [0, 1, 2, 3, 4, 5, 6].map(ri => ({ ri, tx: Math.round(CXT + Math.cos(REG_ANG[ri]) * 34 * RS * ASP), ty: Math.round(CYT + Math.sin(REG_ANG[ri]) * 34 * RS) }));
 REGIONS.push({ ri: 7, tx: CXT, ty: CYT });
-const PURG_R = 13;
+const PURG_R = 15;
 // visszafogott, földszínű paletta tájanként: talaj, talaj2 (folt), szikla teteje, szikla oldala, folyadék
 const BIOME = {
   7: { g: [76, 82, 94], g2: [82, 92, 76], rt: [138, 145, 160], rs: [72, 77, 92], liq: [70, 92, 118], slow: null, name: 'Purgatórium' },
@@ -1749,7 +1680,7 @@ function buildWorld() {
     if (dp < PURG_R) { reg = 7; BF[i] = 0; }
     else if (dp < PURG_R + 2.2) { reg = dp < PURG_R + 1 ? 7 : r1; k = K_ROCK; }
     else if (gap < 2.2 + N(x * 0.2, y * 0.2) * 1.2) k = K_ROCK;
-    if (reg !== 7 && rr > 51 + (N(x * 0.1, y * 0.1) - 0.5) * 9) k = K_ABYSS;
+    if (reg !== 7 && rr > 51 * RS + (N(x * 0.06, y * 0.06) - 0.5) * 14) k = K_ABYSS;
     if (x < 3 || y < 3 || x >= MW - 3 || y >= MH - 3) k = K_ABYSS;
     if (k === K_GROUND && reg !== 7) {
       const rock = N3(x * 0.13, y * 0.13), liq = N(x * 0.07 + 90, y * 0.07 + 90);
@@ -1796,19 +1727,19 @@ function buildWorld() {
     const cands = [];
     for (let y = 4; y < MH - 4; y++) for (let x = 4; x < MW - 4; x++) {
       const ti = y * MW + x; if (RG8[ti] !== ri || BF[ti] > 0.02 || Kt[ti] === K_ABYSS) continue;
-      const rr = Math.hypot((x - C.tx) / ASP, y - C.ty); if (rr < 20 || rr > 45) continue;
+      const rr = Math.hypot((x - C.tx) / ASP, y - C.ty); if (rr < 26 || rr > 84) continue;
       cands.push({ x, y, rr, a: arcDiff(Math.atan2(y - C.ty, (x - C.tx) / ASP), REG_ANG[ri]) });
     }
     const n = ordered.length || 1, chosen = [];
-    const far = cands.filter(q => q.rr > 39).sort((p1, p2) => p1.a - p2.a)[0] || cands.sort((p1, p2) => p2.rr - p1.rr)[0];
+    const far = cands.filter(q => q.rr > 74).sort((p1, p2) => p1.a - p2.a)[0] || cands.sort((p1, p2) => p2.rr - p1.rr)[0];
     for (let i = 0; i < n; i++) {
       const rd = ordered[i], isBoss = rd.type === 'boss';
       let best = far;
       if (!isBoss) {
-        const target = 21 + (i / Math.max(1, n - 1)) * 17; let bs = -1e9;
+        const target = 28 + (i / Math.max(1, n - 1)) * 44; let bs = -1e9;
         for (const q of cands) {
           const md = Math.min(Hypot(q, far) - 6, ...chosen.map(o => Hypot(q, o)));
-          const sc = Math.min(md, 11) * 3 - Math.abs(q.rr - target) * 1.4 + hash2(q.x, q.y, 71) * 0.5;
+          const sc = Math.min(md, 16) * 3 - Math.abs(q.rr - target) * 1.4 + hash2(q.x, q.y, 71) * 0.5;
           if (sc > bs) { bs = sc; best = q; }
         }
       }
@@ -1827,6 +1758,25 @@ function buildWorld() {
       prev = { x: px, y: py };
     });
   }
+  // kijelölt helyek: démonbarlangok, romok (látványosság), bajba jutott lelkek, ereklyetartók
+  W0.sites = [];
+  const SITE_PLAN = [['lair', 9], ['ruin', 4], ['rescue', 2], ['cache', 3]];
+  for (const R0 of REGIONS) {
+    if (R0.ri === 7) continue;
+    const ri = R0.ri, rnd = mulberry(ri * 131 + 17), taken = W0.pois.filter(o => o.ri === ri).map(o => ({ x: o.x / TS, y: o.y / TS }));
+    const cands = [];
+    for (let y = 4; y < MH - 4; y += 2) for (let x = 4; x < MW - 4; x += 2) { const ti = y * MW + x; if (RG8[ti] !== ri || BF[ti] > 0.02 || Kt[ti] === K_ABYSS) continue; const rr = Math.hypot((x - C.tx) / ASP, y - C.ty); if (rr < 24 || rr > 86) continue; cands.push({ x, y }); }
+    for (const [type, cnt] of SITE_PLAN) for (let k = 0; k < cnt; k++) {
+      let best = null, bs = -1;
+      for (let t = 0; t < 60; t++) { const q = cands[Math.floor(rnd() * cands.length)]; if (!q) break; const md = Math.min(...taken.map(o => Hypot(o, q))); if (md > bs) { bs = md; best = q; } }
+      if (!best || bs < 7) continue;
+      const near = taken.reduce((m, o) => Hypot(o, best) < Hypot(m, best) ? o : m, taken[0]);
+      carveLine(near, best, 1.4, true, 3, ri * 7 + k);
+      carve(best.x, best.y, type === 'lair' ? 4.5 : 3, false);
+      taken.push(best);
+      W0.sites.push({ type, ri, x: (best.x + 0.5) * TS, y: (best.y + 0.5) * TS, v: k, title: type === 'ruin' ? RUIN_NAMES[ri][k % RUIN_NAMES[ri].length] : type === 'lair' ? LAIR_NAMES[ri][k % LAIR_NAMES[ri].length] : '' });
+    }
+  }
   // a Kevélység tája csak a kapun át érhető el: a határát utólag is lezárjuk
   for (let i = 0; i < MW * MH; i++) if ((RG8[i] === 6) !== (RG2[i] === 6) && RG8[i] !== 7 && BF[i] > 0.27 && Kt[i] !== K_ABYSS) Kt[i] = K_ROCK;
   // a Kevélység kapuja: lezárt kőfal a hágóban
@@ -1842,14 +1792,41 @@ function buildWorld() {
     const kinds = DECOR_BY[reg], kind = kinds[Math.floor(hash2(x, y, 12) * kinds.length)];
     addDecor(kind, (x + 0.5) * TS + (hash2(x, y, 13) - 0.5) * 20, (y + 0.5) * TS + (hash2(x, y, 14) - 0.5) * 20, Math.floor(hash2(x, y, 15) * 3));
   }
+  // a barlangok körül: karóba húzott tetemek, ketrecek, koponyahalmok
+  for (const st of W0.sites) {
+    if (st.type === 'lair') for (let k = 0; k < 5; k++) { const a = k / 5 * TAU + st.v, rr = 90 + hash2(k, st.v, st.ri) * 50; addDecor(['impaled', 'cage', 'skulls', 'impaled', 'bonepile'][k], st.x + Math.cos(a) * rr, st.y + Math.sin(a) * rr * 0.8, k % 3); }
+    if (st.type === 'ruin') { addDecor('ruinarch', st.x, st.y - 30, st.ri % 3); addDecor('pillar', st.x - 110, st.y + 20, 1); addDecor('pillar', st.x + 110, st.y + 30, 2); }
+  }
   // Purgatórium: oszlopkör és ciprusok
-  for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + 0.11; if (REGIONS.some(r => r.ri !== 7 && Math.abs(((Math.atan2(r.ty - C.ty, r.tx - C.tx) - a + Math.PI * 3) % TAU) - Math.PI) < 0.32)) continue; addDecor(k % 2 ? 'cypress' : 'pillar', (C.tx + 0.5 + Math.cos(a) * 10.5) * TS, (C.ty + 0.5 + Math.sin(a) * 10.5) * TS, k % 3); }
+  for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + 0.11; if (REGIONS.some(r => r.ri !== 7 && Math.abs(((Math.atan2(r.ty - C.ty, r.tx - C.tx) - a + Math.PI * 3) % TAU) - Math.PI) < 0.32)) continue; addDecor(k % 2 ? 'cypress' : 'pillar', (C.tx + 0.5 + Math.cos(a) * 12.5) * TS, (C.ty + 0.5 + Math.sin(a) * 12.5) * TS, k % 3); }
   buildMinimap();
   return W0;
 }
 const DECOR_BY = {
-  7: ['cypress', 'stone', 'pillar'], 0: ['rose', 'rose', 'statue', 'rose'], 1: ['ribs', 'deadtree', 'urn'], 2: ['goldpile', 'goldpile', 'urn', 'statue'],
-  3: ['deadtree', 'reeds', 'reeds', 'stone'], 4: ['spire', 'spire', 'deadtree'], 5: ['crystal', 'crystal', 'mirror'], 6: ['icespike', 'icespike', 'statue', 'pillar'],
+  7: ['cypress', 'stone', 'pillar'], 0: ['rose', 'rose', 'statue', 'rose', 'impaled', 'deadtree'], 1: ['ribs', 'deadtree', 'urn', 'bonepile', 'gibbet'], 2: ['goldpile', 'goldpile', 'urn', 'statue', 'gibbet', 'skulls'],
+  3: ['deadtree', 'reeds', 'reeds', 'stone', 'cage', 'bonepile'], 4: ['spire', 'spire', 'deadtree', 'impaled', 'skulls'], 5: ['crystal', 'crystal', 'mirror', 'cage', 'bonepile'], 6: ['icespike', 'icespike', 'statue', 'pillar', 'impaled', 'skulls'],
+};
+const RUIN_NAMES = {
+  0: ['Az Összeforrt Szeretők Szobra', 'A Leomlott Nászkápolna', 'A Szél Hárfája', 'Didó Máglyája'],
+  1: ['A Kiürült Lakomacsarnok', 'Kerberosz Csontvára', 'A Rothadó Kertek', 'Az Ezer Tál Oltára'],
+  2: ['A Beomlott Pénzverde', 'Krőzus Sírja', 'A Mérlegek Temploma', 'Az Aranyborjú Talapzata'],
+  3: ['A Félbehagyott Katedrális', 'Az Elsüllyedt Harangtorony', 'A Soha Fel Nem Gyújtott Máglya', 'Az Álmodók Kútja'],
+  4: ['A Megtört Pajzsok Fala', 'Dísz Ledőlt Kapuja', 'A Vérmező Emlékköve', 'A Kihunyt Kohók'],
+  5: ['A Bevarrt Szemű Szentek', 'A Tükörcsarnok Romjai', 'A Szomszéd Kertjének Kapuja', 'Káin Kútja'],
+  6: ['A Lehullott Koronák Lépcsője', 'Bábel Csonkja', 'A Megfagyott Kórus', 'Az Első Bukás Helye'],
+};
+const LAIR_NAMES = {
+  0: ['Kéjbarlang', 'A Selyemhurkok Odúja', 'Az Ölelő Tövisek'], 1: ['A Falánkok Ólja', 'A Csontrágók Gödre', 'A Dögkút'], 2: ['A Zsugoriak Rejteke', 'Az Elásott Adósok', 'A Pénzhegy Árnyéka'],
+  3: ['A Mocsári Fészek', 'Az Elalvók Kriptája', 'A Lusták Vermei'], 4: ['A Vérmező', 'A Karók Erdeje', 'Az Égő Árok'], 5: ['A Leskelődők Fészke', 'A Zöld Szemek Barlangja', 'Az Irigyek Gödre'], 6: ['A Gőgösök Trónterme', 'A Jégbe Fagyottak', 'A Bukottak Tábora'],
+};
+const RUIN_TEXT = {
+  0: ['„Itt kértük, hogy soha ne váljunk el. A szél meghallgatott minket.”', 'A vésett nevek fölött friss vér csorog. Valaki még mindig ide jár imádkozni.'],
+  1: ['A kőasztalon ezer üres tál. Egyiken sincs morzsa. A falakon fogak nyoma.', '„Ettünk, hogy ne érezzük az ürességet. Most az üresség eszik minket.”'],
+  2: ['A mérleg egyik serpenyőjében arany, a másikban egy emberi szív. A szív a nehezebb.', 'Egy kopott tábla: „Minden adósság megfizettetik. Kamatostul.”'],
+  3: ['A katedrális sosem készült el. A kőművesek holtteste még ott ül a bontatlan kövek mellett.', '„Holnap” – ez az egyetlen szó, ami a falakon olvasható. Ezerszer.'],
+  4: ['A kőbe vájt jelek egy csata nevét őrzik, amelyről senki sem tudja, miért vívták.', 'Karók sora, rajtuk sisakok. A sisakok alatt még mozog valami.'],
+  5: ['A szentek szemét drótttal varrták be. A varratok között könny szivárog.', 'Minden tükörben más arc néz vissza – mindig olyan, akinek jobb sora volt.'],
+  6: ['A lépcső minden fokán egy korona. A legfelső üres – arra vár, aki a legmagasabbra jut.', '„Nem szolgálok” – írták a kőbe. Alatta, apróbb betűkkel: „Mégis szolgáltam.”'],
 };
 function addDecor(kind, x, y, v) {
   const d = { kind, x, y, v, cr: DECOR_CR[kind] || 0 };
@@ -1858,7 +1835,7 @@ function addDecor(kind, x, y, v) {
   if (!WORLD.dgrid.has(k)) WORLD.dgrid.set(k, []);
   WORLD.dgrid.get(k).push(d);
 }
-const DECOR_CR = { cypress: 10, pillar: 14, statue: 16, deadtree: 8, spire: 14, crystal: 13, mirror: 12, icespike: 12, goldpile: 18, ribs: 16, urn: 10, rose: 12, stone: 12, reeds: 0 };
+const DECOR_CR = { impaled: 8, gibbet: 10, cage: 10, skulls: 18, bonepile: 0, ruinarch: 0, cypress: 10, pillar: 14, statue: 16, deadtree: 8, spire: 14, crystal: 13, mirror: 12, icespike: 12, goldpile: 18, ribs: 16, urn: 10, rose: 12, stone: 12, reeds: 0 };
 
 // ---------- lekérdezések ----------
 const tileAt = (x, y) => { const tx = Math.floor(x / TS), ty = Math.floor(y / TS); if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return K_ABYSS; return WORLD.K[ty * MW + tx]; };
@@ -1925,7 +1902,7 @@ function worldStart() {
   G.fog = new Uint8Array(MW * MH); FOGG.fillStyle = '#000'; FOGG.globalCompositeOperation = 'source-over'; FOGG.fillRect(0, 0, MW, MH);
   G.seenReg = {}; G.dir = { t: 25, n: 0 }; G.encs = [];
   G.curReg = 7; G.hub = true; G.room = G.regionObjs[7];
-  spawnPatrols();
+  spawnSites();
   const C = WORLD.C;
   G.p.x = (C.tx + 0.5) * TS; G.p.y = (C.ty + 4.6) * TS;
   updateCamera(0, true);
@@ -1981,7 +1958,21 @@ function lockPos(k) {
 }
 
 // ---------- járőrök, táborok, találkozások ----------
-function spawnPatrols() {
+function spawnSites() {
+  for (const st of WORLD.sites) {
+    if (st.type === 'lair') {
+      const types = RINGS[st.ri].enemies, n = 3 + (st.v % 3);
+      for (let k = 0; k < n; k++) { const f = findFree(st.x + Math.cos(k * 1.7) * 70, st.y + Math.sin(k * 1.7) * 60); const e = mkEnemy(k === 0 && st.v % 3 === 2 ? 'brute' : choice(types), f.x, f.y, st.ri); e.spawn = 0; e.lair = st; e.home = { x: st.x, y: st.y }; G.enemies.push(e); }
+    } else if (st.type === 'rescue') {
+      const types = RINGS[st.ri].enemies;
+      const enc = { type: 'normal', kind: 'soul', x: st.x, y: st.y, ri: st.ri, title: 'Bajba jutott lélek', fixed: true, npc: { name: 'Elveszett lélek', look: 'soul', talk: choice(LOST_LINES).map(t => ({ who: 'Elveszett lélek', text: t, col: '#9fd0dc' })), reward: 'treasure' } };
+      for (let k = 0; k < 4; k++) { const f = findFree(st.x + Math.cos(k * 1.6) * 95, st.y + Math.sin(k * 1.6) * 85); const e = mkEnemy(choice(types), f.x, f.y, st.ri); e.spawn = 0; e.enc = enc; e.guard = true; G.enemies.push(e); }
+      G.encs.push(enc);
+    } else if (st.type === 'cache') G.encs.push({ type: 'cache', kind: 'cache', x: st.x, y: st.y, ri: st.ri, taken: false, cursed: st.v % 2 === 1, fixed: true });
+    else if (st.type === 'ruin') G.encs.push({ type: 'ruin', kind: 'ruin', x: st.x, y: st.y, ri: st.ri, title: st.title, read: false, fixed: true, text: RUIN_TEXT[st.ri][st.v % RUIN_TEXT[st.ri].length] });
+  }
+}
+function spawnPatrolsOld() {
   const rnd = mulberry(424242);
   for (let ri = 0; ri <= 6; ri++) {
     const R0 = REGIONS[ri];
@@ -2021,6 +2012,7 @@ const LOST_LINES = [
   ['A démonok azt mondták, senki sem jön. Hazudtak.', 'Ezt egy angyal hagyta itt rég. Talán épp neked.'],
 ];
 function director(dt) {
+  return; // nincs véletlen ellenségszülés: a démonok kijelölt helyeken (barlangok, táborok) várnak
   const p = G.p, d = G.dir;
   if (G.hub || G.arena || state !== 'play') return;
   const combat = G.enemies.some(e => e.aggro && !e.dead && dist(e, p) < 750);
@@ -2091,7 +2083,7 @@ function worldUpdate(dt) {
     } else if (o.type === 'treasure' || o.type === 'shrine') {
       if (!o.taken && d < 36) { o.taken = true; openChoice(o.type); }
     } else if (o.type === 'shop') {
-      if (!o.items) { const opts = UPG.offers ? UPG.offers('shop', 3) : pickBlessings(3).map(blessOffer); o.items = opts.map((q, i) => ({ offer: q, x: o.x - 110 + i * 74, y: o.y + 70, price: (q.price || 15) + G.lvl * 4 })); o.items.push({ heal: true, x: o.x + 112, y: o.y + 70, price: 8 + G.lvl * 2 }); }
+      if (!o.items) { const opts = UPG.offers ? UPG.offers('shop', 3) : pickBlessings(3).map(blessOffer); o.items = opts.map((q, i) => ({ offer: q, x: o.x - 105 + i * 70, y: o.y + 66, price: (q.price || 15) + G.lvl * 4 })); o.items.push({ heal: true, x: o.x + 105, y: o.y + 66, price: 8 + G.lvl * 2 }); }
       if (d < 260 && !o.entered) { o.entered = true; emit('roomEnter', o); }
     } else if (o.type === 'boss') {
       const done = G.defeated.includes(o.ri);
@@ -2106,7 +2098,10 @@ function worldUpdate(dt) {
       if (!enc.active && d < 360) { enc.active = true; startEncounter(enc); for (const e of encEnemies(enc)) e.aggro = true; }
       if (enc.active && encEnemies(enc).length === 0) { endEncounter(enc); enc.done = true; }
       if (enc.done && !enc.talked && d < 90) { enc.talked = true; startTalk(enc.npc.talk, () => { if (enc.npc.reward) openChoice(enc.npc.reward); else { for (let i = 0; i < 6; i++) dropPickup('soul', enc.x, enc.y); dropPickup('heart', enc.x, enc.y); } }); }
-      if (d > 1800) enc.cleared = true;
+      if (d > 1800 && !enc.fixed) enc.cleared = true;
+    } else if (enc.kind === 'ruin') {
+      if (!enc.found && d < 420) { enc.found = true; G.banner = { small: true, title: enc.title, sub: 'Látványosság', line: '', t: 0, dur: 2.6, col: RINGS[enc.ri].col }; }
+      if (!enc.read && d < 80) { enc.read = true; startTalk([{ who: enc.title, text: enc.text, col: '#d8c8a8' }], () => { for (let i = 0; i < 3; i++) dropPickup('soul', enc.x, enc.y + 40); }); }
     } else if (enc.kind === 'ambush') {
       if (encEnemies(enc).length === 0) endEncounter(enc);
     } else if (enc.kind === 'cache') {
@@ -2121,13 +2116,13 @@ function worldUpdate(dt) {
         } else { for (let i = 0; i < 7; i++) dropPickup('soul', enc.x, enc.y); if (Math.random() < 0.5) dropPickup('heart', enc.x, enc.y); sfx('coin'); floatText(enc.x, enc.y - 40, 'Elrejtett lelkek', '#8fe8ff', 1.4, 15); }
         enc.cleared = true;
       }
-      if (d > 2000) enc.cleared = true;
+      if (d > 2000 && !enc.fixed) enc.cleared = true;
     }
     if (enc.cleared && enc.onClear) { const f = enc.onClear; enc.onClear = null; f(); }
   }
-  G.encs = G.encs.filter(e => !(e.cleared && (!e.npc || e.talked || Math.hypot(p.x - e.x, p.y - e.y) > 1800)));
+  G.encs = G.encs.filter(e => e.kind === 'ruin' || !(e.cleared && (!e.npc || e.talked || (!e.fixed && Math.hypot(p.x - e.x, p.y - e.y) > 1800))));
   // távoli, nem harcoló démonok eltüntetése
-  for (const e of G.enemies) if (!e.boss && !e.enc && !e.aggro && Math.hypot(e.x - p.x, e.y - p.y) > 2600) e.dead = true;
+  for (const e of G.enemies) if (!e.boss && !e.enc && !e.lair && !e.aggro && Math.hypot(e.x - p.x, e.y - p.y) > 2600) e.dead = true;
   director(dt);
   // főellenség-aréna, portál
   if (G.afterBoss > 0) { G.afterBoss -= dt; if (G.afterBoss <= 0) openChoice('boss', () => { G.portal = { x: G.arenaPoi.x, y: G.arenaPoi.y, t: 0 }; G.arena = null; G.p.arena = null; sfx('holy'); }); }
@@ -2311,6 +2306,33 @@ function decorSprite(kind, v) {
     case 'spire': shadow(16); g.fillStyle = lg(-14, 14, '#4e3a36', '#1e1412'); g.beginPath(); g.moveTo(-14, 0); g.lineTo(-4, -70 - v * 14); g.lineTo(4, -58 - v * 10); g.lineTo(14, 0); g.fill(); g.strokeStyle = 'rgba(255,110,40,0.55)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-6, -8); g.lineTo(-2, -30); g.lineTo(2, -44); g.stroke(); break;
     case 'crystal': shadow(16); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + (i - 2) * 0.32, h = 26 + r() * 30, x = (i - 2) * 6; g.fillStyle = i % 2 ? '#3a8a64' : '#56b888'; g.beginPath(); g.moveTo(x - 6, 0); g.lineTo(x + Math.cos(a) * h, Math.sin(a) * h); g.lineTo(x + 6, 0); g.fill(); g.fillStyle = 'rgba(220,255,235,0.35)'; g.beginPath(); g.moveTo(x - 2, -2); g.lineTo(x + Math.cos(a) * h * 0.9, Math.sin(a) * h * 0.9); g.lineTo(x + 1, -2); g.fill(); } break;
     case 'mirror': shadow(14); g.fillStyle = '#3a2c22'; g.fillRect(-16, -62, 32, 58); g.fillStyle = lg(-12, 12, '#7aa898', '#2e4a40'); g.fillRect(-12, -58, 24, 50); g.strokeStyle = 'rgba(230,255,245,0.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(-8, -50); g.lineTo(2, -30); g.lineTo(-4, -16); g.moveTo(2, -30); g.lineTo(10, -40); g.stroke(); g.fillStyle = '#3a2c22'; g.fillRect(-4, -4, 8, 4); break;
+    case 'impaled': { shadow(14); g.strokeStyle = '#3a2618'; g.lineWidth = 4; g.beginPath(); g.moveTo(0, 0); g.lineTo(-2, -104); g.stroke(); g.strokeStyle = '#1a0e08'; g.lineWidth = 1; g.stroke();
+      const lean = (r() - 0.5) * 0.4; g.save(); g.translate(-1, -64); g.rotate(lean);
+      g.fillStyle = '#6a3a30'; g.strokeStyle = '#140808'; g.lineWidth = 1.2; g.beginPath(); g.ellipse(0, 0, 9, 16, 0, 0, TAU); g.fill(); g.stroke();
+      g.fillStyle = '#5a2a22'; g.beginPath(); g.arc(-2, -20, 7, 0, TAU); g.fill(); g.stroke();
+      g.strokeStyle = '#5a2a22'; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); g.moveTo(-7, -8); g.lineTo(-14, 10); g.moveTo(7, -8); g.lineTo(13, 8); g.moveTo(-4, 14); g.lineTo(-6, 34); g.moveTo(4, 14); g.lineTo(7, 32); g.stroke();
+      g.fillStyle = 'rgba(110,8,8,0.9)'; g.beginPath(); g.ellipse(0, 4, 5, 9, 0, 0, TAU); g.fill(); g.restore();
+      g.fillStyle = '#d8ceb0'; g.beginPath(); g.moveTo(-4, -104); g.lineTo(-2, -116); g.lineTo(0, -104); g.fill();
+      g.strokeStyle = 'rgba(110,8,8,0.85)'; g.lineWidth = 3; g.beginPath(); g.moveTo(-1, -40); g.lineTo(-1, -2); g.stroke(); g.fillStyle = 'rgba(80,4,4,0.7)'; g.beginPath(); g.ellipse(0, 0, 14, 5, 0, 0, TAU); g.fill(); break; }
+    case 'gibbet': { shadow(14); g.strokeStyle = '#2e2014'; g.lineWidth = 5; g.beginPath(); g.moveTo(-14, 0); g.lineTo(-14, -112); g.lineTo(18, -112); g.stroke(); g.lineWidth = 1.2; g.strokeStyle = '#5a5048'; g.beginPath(); g.moveTo(12, -112); g.lineTo(12, -86); g.stroke();
+      g.fillStyle = '#5a3a30'; g.strokeStyle = '#140808'; g.beginPath(); g.ellipse(12, -66, 8, 18, 0.1, 0, TAU); g.fill(); g.stroke(); g.fillStyle = '#4a2a22'; g.beginPath(); g.arc(12, -88, 6, 0, TAU); g.fill(); g.stroke();
+      g.strokeStyle = '#4a2a22'; g.lineWidth = 3.5; g.lineCap = 'round'; g.beginPath(); g.moveTo(9, -50); g.lineTo(7, -30); g.moveTo(15, -50); g.lineTo(16, -32); g.stroke(); g.fillStyle = 'rgba(80,4,4,0.6)'; g.beginPath(); g.ellipse(12, 0, 10, 3, 0, 0, TAU); g.fill(); break; }
+    case 'cage': { shadow(16); g.strokeStyle = '#2e2014'; g.lineWidth = 4; g.beginPath(); g.moveTo(-20, 0); g.lineTo(-20, -118); g.lineTo(4, -118); g.stroke();
+      g.strokeStyle = '#4a4440'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -118); g.lineTo(0, -96); g.stroke();
+      g.fillStyle = 'rgba(40,20,16,0.6)'; g.beginPath(); g.ellipse(0, -70, 14, 26, 0, 0, TAU); g.fill();
+      g.fillStyle = '#d8ceb0'; g.beginPath(); g.arc(-2, -62, 5, 0, TAU); g.fill(); g.fillRect(-5, -56, 6, 14);
+      g.strokeStyle = '#5a5450'; g.lineWidth = 1.6; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * 6, -96); g.quadraticCurveTo(i * 9, -70, i * 6, -44); g.stroke(); } g.beginPath(); g.ellipse(0, -96, 13, 3, 0, 0, TAU); g.ellipse(0, -44, 13, 3, 0, 0, TAU); g.stroke(); break; }
+    case 'skulls': { shadow(24); for (let i = 0; i < 16; i++) { const row = i < 7 ? 0 : i < 12 ? 1 : i < 15 ? 2 : 3, cnt = [7, 5, 3, 1][row], j = (i - [0, 7, 12, 15][row]), x = (j - (cnt - 1) / 2) * 11 + (r() - 0.5) * 2, y = -6 - row * 9;
+        g.fillStyle = r() < 0.5 ? '#d8ceb0' : '#bfb498'; g.strokeStyle = '#2a2018'; g.lineWidth = 0.8; g.beginPath(); g.arc(x, y, 5.5, 0, TAU); g.fill(); g.stroke(); g.fillStyle = '#1a1410'; g.fillRect(x - 3, y - 1, 2, 2); g.fillRect(x + 1, y - 1, 2, 2); g.fillRect(x - 1, y + 2, 2, 1.5); }
+      g.fillStyle = 'rgba(90,6,6,0.6)'; g.beginPath(); g.ellipse(4, -2, 10, 3, 0, 0, TAU); g.fill(); break; }
+    case 'bonepile': { shadow(20); for (let i = 0; i < 12; i++) { const x = (r() - 0.5) * 34, y = -2 - r() * 10, a = r() * 3; g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = '#cfc4a6'; g.fillRect(-8, -1.2, 16, 2.4); g.beginPath(); g.arc(-8, 0, 2, 0, TAU); g.arc(8, 0, 2, 0, TAU); g.fill(); g.restore(); }
+      g.fillStyle = '#d8ceb0'; g.beginPath(); g.arc(6, -12, 5, 0, TAU); g.fill(); g.fillStyle = '#1a1410'; g.fillRect(3, -13, 2, 2); g.fillRect(7, -13, 2, 2); break; }
+    case 'ruinarch': { shadow(40); g.fillStyle = lg(-50, 50, '#6a6470', '#3a3640'); g.strokeStyle = '#141018'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(-48, 0); g.lineTo(-48, -88); g.quadraticCurveTo(-48, -128, 0, -132); g.lineTo(0, -116); g.quadraticCurveTo(-32, -110, -32, -84); g.lineTo(-32, 0); g.closePath(); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(48, 0); g.lineTo(48, -70); g.lineTo(40, -84); g.lineTo(32, -76); g.lineTo(32, 0); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#4a4450'; for (let i = 0; i < 6; i++) { g.fillRect(-46 + r() * 10, -10 - i * 14, 10, 2); }
+      g.fillStyle = 'rgba(90,6,6,0.55)'; g.beginPath(); g.moveTo(-44, -60); g.lineTo(-40, -20); g.lineTo(-36, -60); g.fill();
+      g.fillStyle = '#5a5460'; for (let i = 0; i < 4; i++) { g.beginPath(); g.ellipse(-10 + i * 12 + (r() - 0.5) * 6, -4, 8, 5, r(), 0, TAU); g.fill(); } break; }
     case 'icespike': shadow(14); for (let i = 0; i < 3; i++) { const x = (i - 1) * 9, h = 34 + r() * 34; g.fillStyle = lg(x - 7, x + 7, '#e8eeff', '#8a98c8'); g.beginPath(); g.moveTo(x - 7, 0); g.lineTo(x + (r() - 0.5) * 6, -h); g.lineTo(x + 7, 0); g.fill(); } break;
   }
   SPR[k] = c; return c;
@@ -2336,10 +2358,16 @@ function drawPoi(o) {
     ctx.fillStyle = '#8a8fa2'; ctx.fillRect(o.x - 22, o.y - 30, 44, 28); ctx.fillStyle = '#5a5e70'; ctx.fillRect(o.x - 22, o.y - 30, 44, 4);
     if (!o.taken) { const y = o.y - 46 + Math.sin(t * 2) * 3; ctx.fillStyle = c1; ctx.font = `26px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(gold ? '✦' : '✠', o.x, y); ctx.font = `12px ${SANS}`; ctx.fillStyle = '#e8e2d0'; ctx.fillText(gold ? 'Égi Oltár — lépj elé' : 'Ereklyék oltára — lépj elé', o.x, o.y + 40); }
   } else if (o.type === 'shop') {
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 22, 70, 16, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#3e3044'; ctx.beginPath(); ctx.moveTo(o.x - 64, o.y + 20); ctx.lineTo(o.x, o.y - 56); ctx.lineTo(o.x + 64, o.y + 20); ctx.fill();
-    ctx.fillStyle = '#5e4a66'; ctx.beginPath(); ctx.moveTo(o.x - 64, o.y + 20); ctx.lineTo(o.x, o.y - 56); ctx.lineTo(o.x, o.y + 20); ctx.fill();
-    ctx.fillStyle = '#1a1220'; ctx.beginPath(); ctx.moveTo(o.x - 16, o.y + 20); ctx.lineTo(o.x, o.y - 14); ctx.lineTo(o.x + 16, o.y + 20); ctx.fill();
+    // Menedék: cölöpkerítés, lámpások, szőnyeg, pult, ponyvasátor
+    ctx.fillStyle = 'rgba(70,52,40,0.55)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 40, 150, 70, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#5a1e1a'; ctx.fillRect(o.x - 70, o.y + 30, 140, 50); ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 2; ctx.strokeRect(o.x - 66, o.y + 34, 132, 42);
+    for (let k = 0; k < 22; k++) { const a = Math.PI * 0.62 + k / 21 * Math.PI * 1.76, x = o.x + Math.cos(a) * 185, y = o.y + 30 + Math.sin(a) * 105; ctx.fillStyle = '#2e2016'; ctx.fillRect(x - 3, y - 26, 6, 28); ctx.fillStyle = '#4a3420'; ctx.beginPath(); ctx.moveTo(x - 3, y - 26); ctx.lineTo(x, y - 33); ctx.lineTo(x + 3, y - 26); ctx.fill(); if (k % 7 === 3) { ctx.fillStyle = '#d8a050'; ctx.beginPath(); ctx.arc(x, y - 36, 4, 0, TAU); ctx.fill(); } }
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 22, 80, 16, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#3e2a22'; ctx.beginPath(); ctx.moveTo(o.x - 74, o.y + 20); ctx.lineTo(o.x, o.y - 62); ctx.lineTo(o.x + 74, o.y + 20); ctx.fill();
+    ctx.fillStyle = '#5e4232'; ctx.beginPath(); ctx.moveTo(o.x - 74, o.y + 20); ctx.lineTo(o.x, o.y - 62); ctx.lineTo(o.x, o.y + 20); ctx.fill();
+    ctx.strokeStyle = '#2a1a12'; ctx.lineWidth = 1; for (let k = -3; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(o.x, o.y - 62); ctx.lineTo(o.x + k * 22, o.y + 20); ctx.stroke(); }
+    ctx.fillStyle = '#140c0a'; ctx.beginPath(); ctx.moveTo(o.x - 18, o.y + 20); ctx.lineTo(o.x, o.y - 18); ctx.lineTo(o.x + 18, o.y + 20); ctx.fill();
+    ctx.fillStyle = '#4a3020'; ctx.fillRect(o.x - 130, o.y + 74, 260, 10); ctx.fillStyle = '#2e1e14'; ctx.fillRect(o.x - 126, o.y + 84, 6, 14); ctx.fillRect(o.x + 120, o.y + 84, 6, 14);
     drawNpc({ x: o.x, y: o.y + 6, name: 'A Bűnbánó Kalmár', look: 'soul' }, true);
     if (o.items) for (const it of o.items) {
       ctx.fillStyle = '#2a2430'; ctx.fillRect(it.x - 18, it.y + 6, 36, 10);
@@ -2556,10 +2584,13 @@ function attackersNow() { let n = 0; for (const e of G.enemies) if (!e.boss && e
 function updEnemy(e, dt) {
   if (e.dead) return;
   const p = G.p;
+  // a messzi, nyugvó démonok alszanak – nem terhelik a telefont
+  if (!e.aggro && !e.boss && (Math.abs(e.x - p.x) > 1300 || Math.abs(e.y - p.y) > 1000)) return;
   if (e.flash > 0) e.flash -= dt;
   if (e.orbCd > 0) e.orbCd -= dt;
   if (e.dodgeCd > 0) e.dodgeCd -= dt;
-  e.t += dt;
+  if (e.hurtT > 0) e.hurtT -= dt;
+  e.t += dt; e.moving = 0;
   if (e.burn > 0) {
     e.burn -= dt; e.hp -= p.dmg * 0.4 * Math.max(1, p.burn) * dt;
     if (Math.random() < 0.3) G.parts.push({ x: e.x + rand(-e.r, e.r), y: e.y + rand(-e.r, e.r), vx: 0, vy: -60, life: 0.4, max: 0.4, col: '#ffb060', size: 3 });
@@ -2572,7 +2603,7 @@ function updEnemy(e, dt) {
   if (!e.boss && G.ring === 4 && !G.hub && !e.rage && e.hp < e.maxHp * 0.5 && e.ri === 4) { e.rage = true; e.spd *= 1.4; floatText(e.x, e.y - e.r - 12, 'DÜH!', '#ff4a24', 0.8, 14); }
   const d = dist(e, p);
   e.hitWall = false;
-  if (e.boss) bossPhase(e);
+  if (e.boss) { bossPhase(e, dt); if (e.intro > 0) { collideObst(e); return; } }
   if (e.stun > 0 && !e.boss) { e.stun -= dt; if (e.act && e.act.ph === 'wind') e.act = null; }
   else if (e.act) runAct(e, dt, d);
   else think(e, dt, d);
@@ -2615,6 +2646,11 @@ function think(e, dt, d) {
   // ne torlódjanak egymásra
   for (const o of G.enemies) { if (o === e || o.dead || o.boss) continue; const dx = e.x - o.x, dy = e.y - o.y, dd = dx * dx + dy * dy; if (dd < 3600 && dd > 1) { a = Math.atan2(Math.sin(a) + dy / Math.sqrt(dd) * 0.6, Math.cos(a) + dx / Math.sqrt(dd) * 0.6); } }
   e.x += Math.cos(a) * s * dt; e.y += Math.sin(a) * s * dt; e.moving = s;
+  keepOutOfSanctuary(e);
+}
+// a menedékbe (kalmár) démon nem léphet
+function keepOutOfSanctuary(e) {
+  for (const o of G.pois) { if (o.type !== 'shop') continue; const dx = e.x - o.x, dy = e.y - o.y - 30, d = Math.hypot(dx / 1.75, dy); if (d < 110) { const k = 110 / Math.max(1, d); e.x = o.x + dx * k; e.y = o.y + 30 + dy * k; } }
 }
 function wander(e, dt, sp) {
   if (EDEF[e.type] && EDEF[e.type].still) return;
@@ -2740,9 +2776,9 @@ function actTick(e, A, m, dt) {
   }
 }
 // főellenség fázisai
-function bossPhase(b) {
-  if (b.intro > 0) return;
-  if (b.inv > 0) b.inv -= 1 / 60;
+function bossPhase(b, dt) {
+  if (b.intro > 0) { b.intro -= dt; return; }
+  if (b.inv > 0) b.inv -= dt;
   const max = BOSS_MOVES[b.key].length, ph = max === 3 ? (b.hp < b.maxHp * 0.33 ? 3 : b.hp < b.maxHp * 0.66 ? 2 : 1) : (b.hp < b.maxHp * 0.5 ? 2 : 1);
   if (ph > b.phase) {
     b.phase = ph; b.inv = 1.2; b.act = null; G.charm = 0; G.beams.length = 0; G.shake = 16; sfx('roar'); b.spd *= 1.12;
@@ -2783,85 +2819,372 @@ function drawTelegraph(e) {
   ctx.restore();
 }
 
-// ---------- démonok rajza: tompított színek, sötét kontúr, kevés fény ----------
+function shade(hex, k) { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, n >> 8 & 255, n & 255].map(v => Math.max(0, Math.min(255, Math.round(v * k)))); return `rgb(${c[0]},${c[1]},${c[2]})`; }
+
+// ===================== src/rig.js =====================
+// =====================================================================
+//  DÉMONOK RAJZA ÉS ANIMÁCIÓJA – végtagos „csontváz”, pózokkal
+//  Felkészülés: hátradől, fegyvert emel; lecsapás: előrelendül, elmosódó
+//  ív; kifújás: lóg a karja, lihegve kiegyenesedik; találatra megrándul;
+//  kábultan tántorog. Halálkor a gore.js szétszaggatja.
+// =====================================================================
+const RIG = {
+  imp: { torso: [9, 7, 13], head: 7, horn: 0.9, arm: [8, 8, 2.8], leg: [6, 7, 2.8], weapon: 'claw', skin: '#7a2a22', skin2: '#2e0c0a', belly: '#9a4a38', hunch: 0.28, tail: 1 },
+  mini: { torso: [8, 6, 11], head: 6.5, horn: 0.6, arm: [7, 7, 2.4], leg: [5, 6, 2.4], weapon: 'claw', skin: '#7e3a26', skin2: '#2e100a', belly: '#a0583a', hunch: 0.3, tail: 1 },
+  brute: { torso: [14, 10, 17], head: 7, horn: 1.4, arm: [10, 10, 5], leg: [8, 8, 4.4], weapon: 'cleaver', skin: '#6a3428', skin2: '#22100a', belly: '#8a4a36', hunch: 0.32, armor: 1, ribs: 1 },
+  spitter: { torso: [10, 13, 13], head: 6, horn: 0.35, arm: [6, 6, 2.4], leg: [5, 5, 3.2], weapon: 'none', skin: '#7a5a34', skin2: '#2e2010', belly: '#a08048', hunch: 0.1, bloat: 1, boils: 1 },
+  teleporter: { torso: [7, 5, 16], head: 6, horn: 0, arm: [10, 10, 2], leg: [9, 9, 2.2], weapon: 'blades', skin: '#3a2832', skin2: '#120a10', belly: '#4a3440', hunch: 0.15, hood: 1 },
+  wisp: { torso: [8, 6, 14], head: 6.5, horn: 0, arm: [7, 7, 2], leg: [0, 0, 0], weapon: 'staff', skin: '#58585e', skin2: '#1c1c22', belly: '#6a6a70', hunch: 0.05, robe: 1, skull: 1, float: 1 },
+};
+const BOSS_RIG = {
+  asmodeus: { torso: [13, 9, 18], head: 8, horn: 1.7, arm: [11, 11, 3.6], leg: [9, 9, 3.6], weapon: 'whip', skin: '#7a3040', skin2: '#2a0c14', belly: '#9a4a58', hunch: 0.12, wings: 'bat', tail: 1 },
+  beelzebub: { torso: [14, 15, 16], head: 8, horn: 0.8, arm: [9, 9, 4], leg: [7, 7, 4.4], weapon: 'cleaver', skin: '#5e602a', skin2: '#22240c', belly: '#7e7a38', hunch: 0.2, bloat: 1, boils: 1, fly: 1, wings: 'fly' },
+  mammon: { torso: [14, 11, 17], head: 8, horn: 1.1, arm: [10, 10, 4.4], leg: [8, 8, 4.4], weapon: 'mace', skin: '#6e5228', skin2: '#2a1c0a', belly: '#8e6c36', hunch: 0.2, armor: 2, crown: 1, chains: 1 },
+  belphegor: { torso: [15, 16, 15], head: 8, horn: 1.5, arm: [10, 10, 5], leg: [7, 7, 5], weapon: 'none', skin: '#4e5462', skin2: '#1a1c24', belly: '#666c7a', hunch: 0.35, bloat: 1, sleepy: 1 },
+  satan: { torso: [14, 10, 18], head: 8, horn: 2.0, arm: [11, 11, 4.4], leg: [9, 9, 4.4], weapon: 'greatsword', skin: '#7a2414', skin2: '#2a0a06', belly: '#9a3a20', hunch: 0.15, armor: 1, wings: 'bat', fire: 1 },
+  leviathan: { torso: [12, 9, 16], head: 8, horn: 1.0, arm: [10, 10, 3.6], leg: [0, 0, 0], weapon: 'trident', skin: '#24524a', skin2: '#0a1e1a', belly: '#3a7466', hunch: 0.1, float: 1, scales: 1 },
+  lucifer: { torso: [12, 8, 19], head: 8, horn: 1.3, arm: [11, 11, 3.4], leg: [10, 10, 3.4], weapon: 'greatsword', skin: '#b4a8b8', skin2: '#3a2e44', belly: '#cabed0', hunch: 0, wings: 'angel6', crown: 2 },
+};
+const ease = k => 1 - Math.pow(1 - k, 3);
+function poseOf(e) {
+  const P = { lean: 0, crouch: Math.sin(e.t * 2.6) * 0.8, armB: 0.35, armF: -0.25, bendB: 0.5, bendF: 0.6, leg: 0, mouth: 0.15, glow: 0, shake: 0, wing: Math.sin(e.t * 3) * 0.15 };
+  const mv = e.moving ? Math.min(1, e.moving / 80) : 0;
+  if (mv) { const w = Math.sin(e.t * 10); P.leg = w * 0.7 * mv; P.armB += w * 0.35 * mv; P.armF -= w * 0.35 * mv; P.crouch += Math.abs(w) * 1.2 * mv; P.lean += 0.12 * mv; }
+  const A = e.act;
+  if (A && !(e.stun > 0)) {
+    const m = A.m, sh = m.shape, dur = A.ph === 'wind' ? m.wind : A.ph === 'act' ? m.act : m.rec, k = clamp(A.t / Math.max(0.01, dur), 0, 1);
+    if (sh === 'circle') {
+      if (A.ph === 'wind') { P.armB = P.armF = -2.7 * ease(k); P.bendB = P.bendF = -0.3; P.crouch = -3 * k; P.lean = -0.2 * k; P.shake = k > 0.7 ? 1 : 0; }
+      else if (A.ph === 'act') { P.armB = P.armF = -2.7 + 3.9 * ease(Math.min(1, k * 3)); P.crouch = 6; P.lean = 0.3; }
+      else { P.armB = P.armF = 1.2 - 0.6 * k; P.crouch = 6 * (1 - k); P.lean = 0.3 * (1 - k); P.mouth = 0.6; }
+    } else if (sh === 'line') {
+      if (A.ph === 'wind') { P.crouch = 5 * k; P.lean = 0.55 * k; P.armB = P.armF = 0.9 * k; P.shake = k; P.mouth = 0.8 * k; }
+      else if (A.ph === 'act') { P.lean = 0.65; P.crouch = 3; P.armB = 1.1; P.armF = 1.3; P.leg = Math.sin(e.t * 26) * 0.9; P.mouth = 1; }
+      else { P.lean = 0.5 * (1 - k); P.crouch = 4 * (1 - k); P.armB = P.armF = 1.0 * (1 - k); }
+    } else if (sh === 'arc') {
+      if (A.ph === 'wind') { P.armF = -2.5 * ease(k); P.bendF = -0.2; P.armB = 0.7 * k; P.lean = -0.32 * k; P.crouch = 2.5 * k; P.shake = k > 0.75 ? 0.6 : 0; P.mouth = 0.5 * k; }
+      else if (A.ph === 'act') { P.armF = -2.5 + 4.0 * ease(Math.min(1, k * 2.5)); P.bendF = 0.1; P.armB = -0.4; P.lean = 0.38; P.crouch = 3; P.mouth = 1; }
+      else { P.armF = 1.5 - 0.9 * k; P.armB = 0.3; P.lean = 0.38 * (1 - k); P.crouch = 3 * (1 - k); }
+    } else if (sh === 'proj' || sh === 'lob' || sh === 'rain' || sh === 'beam') {
+      if (A.ph === 'wind') { P.armF = -1.7 * k; P.armB = -1.1 * k; P.bendF = P.bendB = -0.6 * k; P.lean = -0.18 * k; P.mouth = 0.9 * k; P.glow = k; }
+      else if (A.ph === 'act') { P.armF = 1.3; P.armB = 0.6; P.lean = 0.22; P.mouth = 1; P.glow = 1 - k; }
+      else { P.armF = 1.0 * (1 - k); P.lean = 0.2 * (1 - k); }
+    } else if (sh === 'blink') { P.crouch = 5 * k; P.lean = 0.3 * k; P.armB = P.armF = 1.1 * k; }
+    else if (sh === 'summon' || sh === 'howl' || sh === 'pull') { const q = A.ph === 'wind' ? k : 1; P.armB = -2.4 * q; P.armF = -2.4 * q; P.bendB = P.bendF = 0.4; P.lean = -0.3 * q; P.mouth = 1 * q; P.glow = q; P.shake = q * 0.5; }
+    else if (sh === 'hop') { P.crouch = -4; P.lean = -0.3; }
+  }
+  if (e.hurtT > 0) { const h = e.hurtT / 0.16; P.lean -= 0.4 * h; P.mouth = Math.max(P.mouth, 0.8); P.armB -= 0.6 * h; P.armF += 0.4 * h; }
+  if (e.stun > 0) { P.lean = Math.sin(gt * 7) * 0.2; P.armB = 1.3; P.armF = 1.1; P.crouch = 5; P.mouth = 0.5; }
+  return P;
+}
+function limb(x, y, a, l1, l2, bend, w, col, dark) {
+  const ex = x + Math.sin(a) * l1, ey = y + Math.cos(a) * l1, a2 = a + bend, hx = ex + Math.sin(a2) * l2, hy = ey + Math.cos(a2) * l2;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = dark; ctx.lineWidth = w + 2.2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.lineTo(hx, hy); ctx.stroke();
+  ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.lineTo(hx, hy); ctx.stroke();
+  return { hx, hy, a: a2, ex, ey };
+}
+function mixHex(a, b, t) { const A = parseInt(a.slice(1), 16), Bn = parseInt(b.slice(1), 16); const r = (A >> 16) * (1 - t) + (Bn >> 16) * t, g = (A >> 8 & 255) * (1 - t) + (Bn >> 8 & 255) * t, bl = (A & 255) * (1 - t) + (Bn & 255) * t; return '#' + ((1 << 24) + (Math.round(r) << 16) + (Math.round(g) << 8) + Math.round(bl)).toString(16).slice(1); }
+function drawWeapon(kind, h, sc, glow, bloody) {
+  ctx.save(); ctx.translate(h.hx, h.hy); ctx.rotate(-h.a + Math.PI);
+  const D = '#120808';
+  switch (kind) {
+    case 'claw': ctx.strokeStyle = '#d8cfb4'; ctx.lineWidth = 1.4; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(i * 1.6, 0); ctx.quadraticCurveTo(i * 2.6, -4, i * 1.4 + 1.5, -7); ctx.stroke(); } if (bloody) { ctx.fillStyle = '#6e0a0a'; ctx.fillRect(-2, -5, 4, 3); } break;
+    case 'cleaver': ctx.fillStyle = '#3a2418'; ctx.fillRect(-1.4, -2, 2.8, 8); ctx.fillStyle = '#7a7a80'; ctx.strokeStyle = D; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-2, -2); ctx.lineTo(-2, -22); ctx.lineTo(9, -20); ctx.lineTo(8, -2); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#a8a8b0'; ctx.fillRect(6, -20, 2.4, 18); ctx.fillStyle = 'rgba(110,10,10,0.85)'; ctx.beginPath(); ctx.moveTo(-2, -14); ctx.lineTo(6, -18); ctx.lineTo(8, -8); ctx.lineTo(2, -6); ctx.fill(); break;
+    case 'blades': ctx.strokeStyle = '#b8b8c8'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(4, -10, 1, -18); ctx.stroke(); ctx.strokeStyle = '#6e0a0a'; ctx.beginPath(); ctx.moveTo(2.4, -8); ctx.lineTo(1.8, -13); ctx.stroke(); break;
+    case 'staff': ctx.strokeStyle = '#3a2a1e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 8); ctx.lineTo(0, -24); ctx.stroke(); ctx.fillStyle = '#d8ceb0'; ctx.beginPath(); ctx.arc(0, -26, 3.4, 0, TAU); ctx.fill(); ctx.fillStyle = '#120808'; ctx.fillRect(-1.6, -27, 1.2, 1.2); ctx.fillRect(0.6, -27, 1.2, 1.2); if (glow) { ctx.fillStyle = `rgba(160,200,210,${0.6 * glow})`; ctx.beginPath(); ctx.arc(0, -26, 6 + glow * 3, 0, TAU); ctx.fill(); } break;
+    case 'whip': ctx.strokeStyle = '#3a1418'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); for (let i = 1; i <= 8; i++) ctx.lineTo(Math.sin(gt * 8 + i) * i * 0.8, -i * 4); ctx.stroke(); ctx.fillStyle = '#8a1a2a'; ctx.beginPath(); ctx.arc(Math.sin(gt * 8 + 8) * 6.4, -32, 2, 0, TAU); ctx.fill(); break;
+    case 'mace': ctx.fillStyle = '#3a2a18'; ctx.fillRect(-1.2, -16, 2.4, 20); ctx.fillStyle = '#8a6a28'; ctx.strokeStyle = D; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, -19, 6, 0, TAU); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#c8a040'; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 5, -19 + Math.sin(a) * 5); ctx.lineTo(Math.cos(a) * 9, -19 + Math.sin(a) * 9); ctx.lineTo(Math.cos(a + 0.3) * 5, -19 + Math.sin(a + 0.3) * 5); ctx.fill(); } break;
+    case 'greatsword': ctx.fillStyle = '#2a1a14'; ctx.fillRect(-1.2, -1, 2.4, 7); ctx.fillStyle = '#5a4a40'; ctx.fillRect(-6, -2, 12, 2.4); ctx.fillStyle = glow > 0 ? '#c86a2a' : '#8a8a94'; ctx.strokeStyle = D; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-2.6, -2); ctx.lineTo(-2.2, -34); ctx.lineTo(0, -38); ctx.lineTo(2.2, -34); ctx.lineTo(2.6, -2); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = 'rgba(110,10,10,0.7)'; ctx.fillRect(-2, -26, 3, 10); break;
+    case 'trident': ctx.strokeStyle = '#4a4a3a'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -30); ctx.moveTo(-5, -26); ctx.lineTo(-5, -34); ctx.moveTo(5, -26); ctx.lineTo(5, -34); ctx.moveTo(-5, -26); ctx.lineTo(5, -26); ctx.stroke(); break;
+  }
+  ctx.restore();
+}
+function drawRig(e, R, S, dir) {
+  const P = poseOf(e), fl = e.flash > 0, ri = e.ri !== undefined ? e.ri : 0, rgc = (RINGS[ri] || RINGS[0]).body;
+  const skin = fl ? '#f0e0d8' : mixHex(R.skin, rgc, 0.25), skin2 = fl ? '#c8b8b0' : mixHex(R.skin2, rgc, 0.2), dark = '#0e0606', belly = fl ? '#fff0e8' : R.belly;
+  const [tw, tb, th] = R.torso, [a1, a2, aw] = R.arm, [l1, l2, lw] = R.leg;
+  const shx = P.shake ? Math.sin(gt * 60) * 0.8 * P.shake : 0;
+  ctx.save(); ctx.translate(shx, 0); ctx.scale(dir * S, S);
+  const fy = R.float ? -6 + Math.sin(e.t * 2.4) * 2 : 0;
+  // lábak
+  const hipY = 0 + P.crouch * 0.4 + fy;
+  if (!R.float && l1) {
+    limb(-tw * 0.35, hipY, -0.15 + P.leg + 0.15, l1, l2, -0.35 - Math.max(0, P.crouch) * 0.06, lw, skin2, dark);
+    limb(tw * 0.35, hipY, 0.1 - P.leg + 0.1, l1, l2, -0.35 - Math.max(0, P.crouch) * 0.06, lw, skin2, dark);
+  }
+  ctx.translate(0, hipY); ctx.rotate(P.lean + R.hunch * 0.6);
+  // szárnyak és farok a test mögött
+  if (R.tail) { ctx.strokeStyle = dark; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(-2, -2); ctx.quadraticCurveTo(-14, 4 + Math.sin(e.t * 4) * 3, -18, -6); ctx.stroke(); ctx.strokeStyle = skin2; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = skin2; ctx.beginPath(); ctx.moveTo(-18, -6); ctx.lineTo(-22, -10); ctx.lineTo(-16, -9); ctx.fill(); }
+  if (R.wings) drawWings(R.wings, th, P, skin2, dark, fl);
+  // hátsó kar
+  const sY = -th * 0.85;
+  const hB = limb(-tw * 0.55, sY, P.armB, a1, a2, P.bendB, aw, skin2, dark);
+  // törzs
+  const tg = ctx.createLinearGradient(-tw, -th, tw, 0); tg.addColorStop(0, skin); tg.addColorStop(1, skin2);
+  ctx.fillStyle = tg; ctx.strokeStyle = dark; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(-tw * 0.8, -th); ctx.quadraticCurveTo(-tw * 1.05, -th * 0.4, -tb * (R.bloat ? 1.05 : 0.7), 0); ctx.quadraticCurveTo(0, tb * (R.bloat ? 0.7 : 0.3), tb * (R.bloat ? 1.05 : 0.7), 0); ctx.quadraticCurveTo(tw * 1.05, -th * 0.4, tw * 0.8, -th); ctx.quadraticCurveTo(0, -th * 1.12, -tw * 0.8, -th); ctx.fill(); ctx.stroke();
+  if (R.robe) { ctx.fillStyle = fl ? '#ddd' : '#1e1a20'; ctx.beginPath(); ctx.moveTo(-tw * 0.9, -th * 0.6); ctx.lineTo(-tw * 1.2, 14 + Math.sin(e.t * 5) * 2); for (let i = 0; i <= 5; i++) ctx.lineTo(-tw * 1.2 + i * tw * 0.48, 14 + (i % 2 ? 4 : 0) + Math.sin(e.t * 5 + i) * 2); ctx.lineTo(tw * 0.9, -th * 0.6); ctx.fill(); }
+  ctx.fillStyle = belly; ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.ellipse(tw * 0.1, -th * 0.35, tw * (R.bloat ? 0.75 : 0.45), th * 0.32, 0, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+  if (R.ribs) { ctx.strokeStyle = '#d8ccb0'; ctx.lineWidth = 1; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-tw * 0.3, -th * 0.7 + i * 3.4); ctx.quadraticCurveTo(tw * 0.1, -th * 0.6 + i * 3.4, tw * 0.45, -th * 0.72 + i * 3.4); ctx.stroke(); } ctx.fillStyle = 'rgba(110,10,10,0.7)'; ctx.beginPath(); ctx.ellipse(0, -th * 0.6, tw * 0.35, 4, 0, 0, TAU); ctx.fill(); }
+  if (R.boils) { ctx.fillStyle = '#b8a060'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(-tw * 0.6 + hash2(i, 3, 9) * tw * 1.3, -th * 0.2 - hash2(i, 4, 9) * th * 0.6, 1.4 + hash2(i, 5, 9) * 1.6, 0, TAU); ctx.fill(); } }
+  if (R.armor) { ctx.fillStyle = R.armor === 2 ? '#8a6a28' : '#4a4448'; ctx.strokeStyle = dark; ctx.lineWidth = 1; for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * tw * 0.75, -th * 0.95, tw * 0.38, tw * 0.22, s * 0.3, 0, TAU); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#7a7478'; ctx.beginPath(); ctx.moveTo(s * tw * 0.8, -th * 1.1); ctx.lineTo(s * tw * 0.95, -th * 1.32); ctx.lineTo(s * tw * 0.6, -th * 1.08); ctx.fill(); ctx.fillStyle = R.armor === 2 ? '#8a6a28' : '#4a4448'; } }
+  if (R.chains) { ctx.strokeStyle = '#c8a040'; ctx.lineWidth = 1.2; ctx.setLineDash([2, 1.5]); ctx.beginPath(); ctx.moveTo(-tw * 0.7, -th * 0.9); ctx.quadraticCurveTo(0, -th * 0.2, tw * 0.7, -th * 0.9); ctx.stroke(); ctx.setLineDash([]); }
+  if (R.scales) { ctx.strokeStyle = 'rgba(160,220,200,0.25)'; ctx.lineWidth = 0.8; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(-tw * 0.5 + (i % 3) * tw * 0.5, -th * 0.75 + Math.floor(i / 3) * 5, 2.4, 0, Math.PI); ctx.stroke(); } }
+  // sebek a testen, ha megsérült
+  if (e.hp < e.maxHp * 0.6) { ctx.fillStyle = 'rgba(100,8,8,0.85)'; ctx.beginPath(); ctx.ellipse(-tw * 0.25, -th * 0.5, 2.2, 3.4, 0.4, 0, TAU); ctx.fill(); }
+  if (e.hp < e.maxHp * 0.3) { ctx.beginPath(); ctx.ellipse(tw * 0.3, -th * 0.25, 2.6, 2, -0.3, 0, TAU); ctx.fill(); }
+  // fej
+  ctx.save(); ctx.translate(tw * 0.15, -th - R.head * 0.75); ctx.rotate(-P.lean * 0.4);
+  drawHead(R, P, skin, skin2, dark, fl, e);
+  ctx.restore();
+  // első kar + fegyver
+  const hF = limb(tw * 0.55, sY, P.armF, a1, a2, P.bendF, aw, skin, dark);
+  drawWeapon(R.weapon, hF, S, P.glow, e.hp < e.maxHp);
+  if (R.weapon === 'blades') drawWeapon('blades', hB, S, 0, false);
+  if (P.glow > 0 && (R.weapon === 'none' || R.weapon === 'claw')) { ctx.fillStyle = `rgba(200,120,60,${0.55 * P.glow})`; ctx.beginPath(); ctx.arc(hF.hx, hF.hy, 2 + P.glow * 3, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+function drawHead(R, P, skin, skin2, dark, fl, e) {
+  const h = R.head;
+  if (R.horn) { ctx.fillStyle = fl ? '#eee' : '#1e1410'; ctx.strokeStyle = dark; ctx.lineWidth = 1; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * h * 0.4, -h * 0.55); ctx.quadraticCurveTo(s * h * (0.9 + R.horn * 0.4), -h * (0.9 + R.horn * 0.3), s * h * (0.7 + R.horn * 0.35), -h * (1.3 + R.horn * 0.55)); ctx.lineTo(s * h * 0.12, -h * 0.75); ctx.closePath(); ctx.fill(); ctx.stroke(); } }
+  if (R.hood) { ctx.fillStyle = fl ? '#ddd' : '#16101a'; ctx.beginPath(); ctx.moveTo(-h * 1.1, h * 0.6); ctx.quadraticCurveTo(-h * 1.2, -h * 1.3, 0, -h * 1.4); ctx.quadraticCurveTo(h * 1.2, -h * 1.3, h * 1.1, h * 0.6); ctx.fill(); }
+  const hg = ctx.createLinearGradient(-h, -h, h, h); hg.addColorStop(0, R.skull ? '#d8ceb4' : skin); hg.addColorStop(1, R.skull ? '#8a8270' : skin2);
+  ctx.fillStyle = hg; ctx.strokeStyle = dark; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(-h * 0.85, -h * 0.2); ctx.quadraticCurveTo(-h * 0.9, -h, 0, -h); ctx.quadraticCurveTo(h * 0.9, -h, h * 0.85, -h * 0.2); ctx.lineTo(h * 0.55, h * 0.55 + P.mouth * h * 0.35); ctx.lineTo(-h * 0.45, h * 0.55 + P.mouth * h * 0.35); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // szem
+  if (R.fly) { ctx.fillStyle = '#5a1a12'; ctx.beginPath(); ctx.ellipse(-h * 0.4, -h * 0.35, h * 0.38, h * 0.32, 0, 0, TAU); ctx.ellipse(h * 0.45, -h * 0.35, h * 0.38, h * 0.32, 0, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,180,120,0.25)'; ctx.fillRect(-h * 0.6, -h * 0.5, h * 0.2, h * 0.1); }
+  else if (R.sleepy) { ctx.strokeStyle = '#d8b040'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-h * 0.55, -h * 0.3); ctx.lineTo(-h * 0.15, -h * 0.25); ctx.moveTo(h * 0.25, -h * 0.25); ctx.lineTo(h * 0.65, -h * 0.3); ctx.stroke(); }
+  else { ctx.fillStyle = '#100404'; ctx.beginPath(); ctx.ellipse(-h * 0.33, -h * 0.3, h * 0.24, h * 0.15, 0.25, 0, TAU); ctx.ellipse(h * 0.42, -h * 0.3, h * 0.24, h * 0.15, -0.25, 0, TAU); ctx.fill(); ctx.fillStyle = R.skull ? '#a8c8d0' : '#e8a838'; ctx.beginPath(); ctx.arc(-h * 0.3, -h * 0.3, h * 0.08, 0, TAU); ctx.arc(h * 0.45, -h * 0.3, h * 0.08, 0, TAU); ctx.fill(); }
+  // száj és fogak
+  const my = h * 0.25, mh = h * (0.12 + P.mouth * 0.38);
+  ctx.fillStyle = '#1a0404'; ctx.beginPath(); ctx.ellipse(h * 0.05, my, h * 0.42, mh, 0, 0, TAU); ctx.fill();
+  if (P.mouth > 0.4) { ctx.fillStyle = '#6e0a0a'; ctx.beginPath(); ctx.ellipse(h * 0.05, my + mh * 0.4, h * 0.25, mh * 0.4, 0, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = '#e0d6bc'; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(h * 0.05 + i * h * 0.15 - 1, my - mh * 0.6); ctx.lineTo(h * 0.05 + i * h * 0.15 + 1, my - mh * 0.6); ctx.lineTo(h * 0.05 + i * h * 0.15, my - mh * 0.6 + 2.2); ctx.fill(); }
+  if (R.crown) { ctx.fillStyle = R.crown === 2 ? '#3a3040' : '#b08a30'; ctx.strokeStyle = dark; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-h * 0.7, -h * 0.85); for (let i = 0; i <= 4; i++) ctx.lineTo(-h * 0.7 + i * h * 0.35, -h * (i % 2 ? 1.25 : 1.6)); ctx.lineTo(h * 0.7, -h * 0.85); ctx.closePath(); ctx.fill(); ctx.stroke(); if (R.crown === 2) { ctx.strokeStyle = 'rgba(160,140,180,0.6)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(0, -h * 1.9, h * 0.9, h * 0.25, 0, 0.3, Math.PI * 1.4); ctx.stroke(); } }
+}
+function drawWings(kind, th, P, col, dark, fl) {
+  const f = P.wing + (P.glow ? -0.3 * P.glow : 0);
+  if (kind === 'fly') { ctx.fillStyle = 'rgba(190,200,170,0.35)'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * 14, -th * 0.9, 13, 5, s * (0.5 + Math.sin(gt * 40) * 0.4), 0, TAU); ctx.fill(); } return; }
+  const pairs = kind === 'angel6' ? 3 : 1;
+  for (let k = 0; k < pairs; k++) for (const s of [-1, 1]) {
+    ctx.save(); ctx.translate(s * 5, -th * 0.85); ctx.scale(s, 1); ctx.rotate(-0.5 + k * 0.55 + f);
+    if (kind === 'bat') {
+      ctx.fillStyle = fl ? '#ddd' : mixHex('#2a1418', '#000000', 0.2); ctx.strokeStyle = dark; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(16, -14); ctx.lineTo(30, -10); ctx.quadraticCurveTo(26, -2, 30, 4); ctx.quadraticCurveTo(22, 2, 22, 8); ctx.quadraticCurveTo(14, 4, 10, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(16, -14); ctx.moveTo(16, -14); ctx.lineTo(22, 8); ctx.moveTo(16, -14); ctx.lineTo(10, 10); ctx.stroke();
+    } else {
+      for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? '#2a2232' : '#3a2e44'; ctx.strokeStyle = dark; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.ellipse(10 + i * 3, -2 + i * 1.6, 14 - i, 3, -0.2 + i * 0.12, 0, TAU); ctx.fill(); ctx.stroke(); }
+    }
+    ctx.restore();
+  }
+}
+// ---------- a rajzolás belépési pontja ----------
 function drawEnemy(e) {
-  if (e.boss) { drawBoss(e); return; }
-  const rg = RINGS[e.ri] || RINGS[0], col = rg.col, fl = e.flash > 0, r = e.r;
-  const a = e.face || 0, bob = Math.sin(e.t * (e.moving ? 10 : 3)) * (e.moving ? 1.6 : 0.8), sq = 1 + Math.sin(e.t * (e.moving ? 10 : 3)) * 0.04;
-  ctx.save(); ctx.translate(e.x, e.y);
+  const fl = e.flash > 0, r = e.r;
+  const dir = Math.cos(e.face || 0) < 0 ? -1 : 1;
+  ctx.save();
   if (e.spawn > 0) ctx.globalAlpha = 1 - e.spawn / 0.6;
   ctx.globalAlpha *= e.alpha;
+  if (e.boss && e.key === 'leviathan') drawSerpent(e);
   // talajárnyék
-  ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.beginPath(); ctx.ellipse(0, r * 0.85, r * 1.05, r * 0.36, 0, 0, TAU); ctx.fill();
-  if (!G.hub && e.ri === 6 && e.spawn <= 0) { // csábító aura (Kevélység)
-    const d = dist(e, G.p); ctx.strokeStyle = 'rgba(230,170,240,0.28)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 8]); ctx.lineDashOffset = -gt * 30; ctx.beginPath(); ctx.arc(0, 0, 115, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-    if (d < 115) { ctx.strokeStyle = 'rgba(255,150,220,0.45)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(G.p.x - e.x, G.p.y - e.y); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.85, r * 1.05, r * 0.34, 0, 0, TAU); ctx.fill();
+  // lecsapás: elmosódó ív a fegyver útján
+  const A = e.act;
+  if (A && A.ph === 'act' && A.m.shape === 'arc') {
+    const k = clamp(A.t / A.m.act, 0, 1), m = A.m, rr = m.r * 0.92, a0 = A.a - m.half, a1 = A.a - m.half + m.half * 2 * ease(Math.min(1, k * 2.5));
+    ctx.fillStyle = `rgba(230,200,180,${0.35 * (1 - k)})`; ctx.beginPath(); ctx.arc(e.x, e.y, rr, a0, a1); ctx.arc(e.x, e.y, rr * 0.55, a1, a0, true); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = `rgba(120,10,10,${0.6 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(e.x, e.y, rr, a0, a1); ctx.stroke();
   }
-  ctx.translate(0, -bob); ctx.scale(1 / sq, sq);
-  const dark = hexA(rg.body, 1), mid = col;
-  const body = fl ? '#ffffff' : null;
-  const gr = ctx.createLinearGradient(-r, -r, r * 0.6, r);
-  gr.addColorStop(0, fl ? '#fff' : shade(mid, 0.75)); gr.addColorStop(1, fl ? '#fff' : shade(rg.body, 0.8));
-  ctx.lineWidth = 2; ctx.strokeStyle = '#140a10'; ctx.fillStyle = gr;
-  const eyes = (sp = 0.36, ey = -0.15, es = 0.13, ec = '#ffd36a') => { const ox = Math.cos(a) * r * 0.16, oy = Math.sin(a) * r * 0.1; ctx.fillStyle = '#1a0a08'; ctx.beginPath(); ctx.arc(-r * sp + ox, r * ey + oy, r * es * 1.5, 0, TAU); ctx.arc(r * sp + ox, r * ey + oy, r * es * 1.5, 0, TAU); ctx.fill(); ctx.fillStyle = ec; ctx.beginPath(); ctx.arc(-r * sp + ox, r * ey + oy, r * es, 0, TAU); ctx.arc(r * sp + ox, r * ey + oy, r * es, 0, TAU); ctx.fill(); };
-  const horns = (k = 1) => { ctx.fillStyle = fl ? '#fff' : '#2a1a14'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * r * 0.45, -r * 0.6); ctx.quadraticCurveTo(s * r * 1.1 * k, -r * 1.1, s * r * 0.9 * k, -r * 1.55 * k); ctx.lineTo(s * r * 0.2, -r * 0.85); ctx.closePath(); ctx.fill(); ctx.stroke(); } ctx.fillStyle = gr; };
-  switch (e.type) {
-    case 'imp': case 'mini': {
-      horns(0.9);
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * r * 0.5, r * 0.5); ctx.lineTo(s * r * 0.75, r * 1.1); ctx.lineTo(s * r * 0.3, r * 0.75); ctx.fill(); ctx.stroke(); }
-      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.arc(-r * 0.3, -r * 0.35, r * 0.4, 0, TAU); ctx.fill();
-      eyes(); ctx.strokeStyle = '#1a0806'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(Math.cos(a) * 2, r * 0.25, r * 0.35, 0.2, Math.PI - 0.2); ctx.stroke(); break;
-    }
-    case 'fly': {
-      const wf = Math.sin(gt * 40) * 0.5; ctx.fillStyle = 'rgba(210,220,200,0.35)'; ctx.beginPath(); ctx.ellipse(-r, -r * 0.6, r * 0.9, r * 0.38, -0.5 + wf, 0, TAU); ctx.ellipse(r, -r * 0.6, r * 0.9, r * 0.38, 0.5 - wf, 0, TAU); ctx.fill();
-      ctx.fillStyle = gr; ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.85, 0, 0, TAU); ctx.fill(); ctx.stroke(); eyes(0.34, -0.1, 0.22, '#ff5a40'); break;
-    }
-    case 'spitter': {
-      ctx.beginPath(); ctx.ellipse(0, 0, r, r * 1.05, 0, 0, TAU); ctx.fill(); ctx.stroke();
-      for (let i = 0; i < 4; i++) { const q = -0.9 + i * 0.6; ctx.beginPath(); ctx.arc(Math.cos(q) * r * 0.55, -r * 0.2 + Math.sin(q) * r * 0.5, 2.5, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fill(); }
-      ctx.fillStyle = '#160606'; ctx.beginPath(); ctx.ellipse(Math.cos(a) * r * 0.45, Math.sin(a) * r * 0.4 + 3, r * 0.34, r * 0.24 + (e.act ? 3 : Math.sin(e.t * 6)), a, 0, TAU); ctx.fill();
-      eyes(0.33, -0.38, 0.12); break;
-    }
-    case 'brute': {
-      horns(1.2);
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * r * 1.05, r * 0.15, r * 0.38, r * 0.5, s * 0.3, 0, TAU); ctx.fill(); ctx.stroke(); }
-      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-r, -r * 0.9, r * 2, r * 1.9, r * 0.5) : ctx.rect(-r, -r * 0.9, r * 2, r * 1.9); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(-r * 0.7, r * 0.1, r * 1.4, r * 0.12);
-      eyes(0.38, -0.25, 0.11, '#ff7a4a'); ctx.fillStyle = '#e8e0c8'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * r * 0.3, r * 0.35); ctx.lineTo(s * r * 0.4, r * 0.05); ctx.lineTo(s * r * 0.18, r * 0.35); ctx.fill(); } break;
-    }
-    case 'wisp': {
-      ctx.beginPath(); ctx.moveTo(0, -r * 1.6 - Math.sin(e.t * 9) * 3); ctx.quadraticCurveTo(r * 1.2, -r * 0.3, r, r * 0.3); ctx.quadraticCurveTo(r * 0.5, r * 1.2, 0, r * 0.7); ctx.quadraticCurveTo(-r * 0.5, r * 1.2, -r, r * 0.3); ctx.quadraticCurveTo(-r * 1.2, -r * 0.3, 0, -r * 1.6 - Math.sin(e.t * 9) * 3);
-      ctx.globalAlpha *= 0.85; ctx.fill(); ctx.stroke(); ctx.globalAlpha = Math.min(1, ctx.globalAlpha / 0.85); eyes(0.3, 0.1, 0.13, '#f0f0ff'); break;
-    }
-    case 'splitter': {
-      const wob = Math.sin(e.t * 6) * 0.07; ctx.beginPath(); ctx.ellipse(0, 0, r * (1 + wob), r * (1 - wob), 0, 0, TAU); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.arc(-r * 0.4, r * 0.3, r * 0.2, 0, TAU); ctx.arc(r * 0.45, r * 0.2, r * 0.14, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#120404'; ctx.beginPath(); ctx.ellipse(0, r * 0.35, r * 0.5, r * 0.2 + (e.act ? 4 : 0), 0, 0, TAU); ctx.fill(); eyes(0.34, -0.32, 0.13); break;
-    }
-    case 'turret': {
-      ctx.fillStyle = '#2a2430'; ctx.beginPath(); ctx.ellipse(0, r * 0.5, r * 1.1, r * 0.5, 0, 0, TAU); ctx.fill(); ctx.stroke(); ctx.fillStyle = gr;
-      ctx.beginPath(); for (let i = 0; i < 6; i++) { const q = i / 6 * TAU + e.spin * 0.2; ctx.lineTo(Math.cos(q) * r, Math.sin(q) * r * 0.9 - 4); } ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#1a0a08'; ctx.beginPath(); ctx.ellipse(0, -4, r * 0.55, r * 0.32, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = e.act ? '#fff2c0' : '#ffcf5a'; ctx.beginPath(); ctx.arc(Math.cos(a) * r * 0.2, -4 + Math.sin(a) * r * 0.1, r * 0.17, 0, TAU); ctx.fill(); break;
-    }
-    case 'teleporter': {
-      ctx.beginPath(); ctx.moveTo(0, -r * 1.5); ctx.lineTo(r * 1.1, r); ctx.quadraticCurveTo(0, r * 1.4, -r * 1.1, r); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#0a0608'; ctx.beginPath(); ctx.ellipse(0, -r * 0.25, r * 0.55, r * 0.5, 0, 0, TAU); ctx.fill(); eyes(0.2, -0.25, 0.1, shade(col, 1.2)); break;
-    }
-    case 'shadow': ctx.restore(); drawAngel(e.x, e.y, a, e.t, true, e.alpha * (fl ? 0.6 : 1)); return;
+  if (A && A.ph === 'act' && A.m.shape === 'circle' && A.t < 0.1) { ctx.fillStyle = 'rgba(80,60,50,0.35)'; ctx.beginPath(); ctx.arc(e.x, e.y + r * 0.6, A.m.r * 0.8, 0, TAU); ctx.fill(); }
+  ctx.translate(e.x, e.y + r * 0.85);
+  if (e.boss && e.intro > 0) { const k = Math.min(1, (2.2 - e.intro) / 1.2); ctx.scale(k, k); }
+  if (e.boss && e.inv > 0) ctx.globalAlpha *= 0.6 + Math.sin(gt * 30) * 0.3;
+  if (!G.hub && e.ri === 6 && e.spawn <= 0 && !e.boss) { // csábító aura (Kevélység)
+    const d = dist(e, G.p); ctx.strokeStyle = 'rgba(190,150,200,0.25)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 8]); ctx.lineDashOffset = -gt * 30; ctx.beginPath(); ctx.arc(0, -r * 0.85, 115, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    if (d < 115) { ctx.strokeStyle = 'rgba(200,120,170,0.4)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -r * 0.85); ctx.lineTo(G.p.x - e.x, G.p.y - e.y - r * 0.85); ctx.stroke(); }
   }
-  if (e.elite) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r + 5, 0, TAU); ctx.stroke(); }
+  const R0 = e.boss ? BOSS_RIG[e.key] : RIG[e.type];
+  if (R0) drawRig(e, R0, e.boss ? r / 13 : r / 10.5, dir);
+  else drawBlobDemon(e, dir, fl);
+  if (e.elite) { ctx.strokeStyle = 'rgba(216,176,80,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, 0, r * 1.2, r * 0.4, 0, 0, TAU); ctx.stroke(); }
   ctx.restore();
+  // állapotjelzők
   ctx.save(); ctx.translate(e.x, e.y);
-  if (e.burn > 0) { ctx.fillStyle = '#ffa040'; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.ellipse(0, -r - 4, 3, 5 + Math.sin(gt * 20), 0, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
-  if (e.stun > 0) { ctx.fillStyle = PAL.gold; for (let i = 0; i < 3; i++) { const q = gt * 6 + i * TAU / 3; ctx.beginPath(); ctx.arc(Math.cos(q) * r * 0.8, -r - 8 + Math.sin(q) * 3, 2.5, 0, TAU); ctx.fill(); } }
-  if (e.slowT > 0) { ctx.globalAlpha = 0.3; ctx.fillStyle = PAL.frost; ctx.beginPath(); ctx.arc(0, 0, r * 1.1, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
-  if (e.loot) { ctx.textAlign = 'center'; ctx.font = `bold 12px ${SANS}`; ctx.fillStyle = '#000'; ctx.fillText(`◈${e.loot}`, 1, -r - 15); ctx.fillStyle = '#ffd700'; ctx.fillText(`◈${e.loot}`, 0, -r - 16); }
+  const top = -r * (e.boss ? 3.2 : 2.6);
+  if (e.burn > 0) { ctx.fillStyle = '#d8803a'; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.ellipse(0, top + 6, 3, 5 + Math.sin(gt * 20), 0, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
+  if (e.stun > 0) { ctx.fillStyle = PAL.gold; for (let i = 0; i < 3; i++) { const q = gt * 6 + i * TAU / 3; ctx.beginPath(); ctx.arc(Math.cos(q) * r * 0.8, top + Math.sin(q) * 3, 2.3, 0, TAU); ctx.fill(); } }
+  if (e.loot) { ctx.textAlign = 'center'; ctx.font = `bold 12px ${SANS}`; ctx.fillStyle = '#000'; ctx.fillText(`◈${e.loot}`, 1, top - 9); ctx.fillStyle = '#d8b050'; ctx.fillText(`◈${e.loot}`, 0, top - 10); }
   ctx.restore();
-  if (e.hp < e.maxHp) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(e.x - 16, e.y - r - 12, 32, 4); ctx.fillStyle = shade(col, 0.95); ctx.fillRect(e.x - 16, e.y - r - 12, 32 * Math.max(0, e.hp / e.maxHp), 4); }
+  if (!e.boss && e.hp < e.maxHp && e.spawn <= 0) { const y = e.y - r * 2.5; ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(e.x - 16, y, 32, 4); ctx.fillStyle = '#8a1010'; ctx.fillRect(e.x - 16, y, 32 * Math.max(0, e.hp / e.maxHp), 4); }
 }
-function shade(hex, k) { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, n >> 8 & 255, n & 255].map(v => Math.max(0, Math.min(255, Math.round(v * k)))); return `rgb(${c[0]},${c[1]},${c[2]})`; }
+// nem emberszerű démonok: légy, hasadó húskupac, gerinctorony
+function drawBlobDemon(e, dir, fl) {
+  const r = e.r, A = e.act, wind = A && A.ph === 'wind' ? clamp(A.t / A.m.wind, 0, 1) : 0, actk = A && A.ph === 'act' ? 1 : 0;
+  ctx.scale(dir, 1); ctx.translate(0, -r * 0.85);
+  const dark = '#0e0606';
+  if (e.type === 'fly') {
+    const wf = Math.sin(gt * 50) * 0.5; ctx.fillStyle = 'rgba(180,190,160,0.4)'; ctx.beginPath(); ctx.ellipse(-r * 0.9, -r * 0.7, r * 0.95, r * 0.36, -0.5 + wf, 0, TAU); ctx.ellipse(r * 0.9, -r * 0.7, r * 0.95, r * 0.36, 0.5 - wf, 0, TAU); ctx.fill();
+    ctx.fillStyle = fl ? '#eee' : '#3a3a1c'; ctx.strokeStyle = dark; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(0, 0, r * 1.1, r * 0.85, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#6a2214'; ctx.beginPath(); ctx.ellipse(r * 0.5, -r * 0.2, r * 0.42, r * 0.38, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#8a1010'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(r, r * 0.1); ctx.lineTo(r * 1.5 + actk * 4, r * 0.3); ctx.stroke();
+    return;
+  }
+  if (e.type === 'splitter') {
+    const wob = Math.sin(e.t * 6) * 0.07 + wind * 0.15;
+    ctx.fillStyle = fl ? '#eee' : '#6a4a3a'; ctx.strokeStyle = dark; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(0, 0, r * (1 + wob), r * (1 - wob * 0.7), 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#4a1a14'; for (let i = 0; i < 3; i++) { const a = -0.8 + i * 0.8; ctx.beginPath(); ctx.ellipse(Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.45, r * 0.22, r * (0.08 + wind * 0.12 + actk * 0.15), a, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#d8ceb0'; for (let i = 0; i < 6; i++) { const a = -0.8 + (i % 3) * 0.8; ctx.fillRect(Math.cos(a) * r * 0.5 - 1 + (i > 2 ? 2 : -2), Math.sin(a) * r * 0.45 - 1, 1.2, 2.4); }
+    ctx.fillStyle = 'rgba(110,10,10,0.6)'; ctx.beginPath(); ctx.ellipse(-r * 0.3, r * 0.5, r * 0.3, r * 0.15, 0, 0, TAU); ctx.fill();
+    return;
+  }
+  if (e.type === 'turret') {
+    ctx.fillStyle = '#2a1a16'; ctx.beginPath(); ctx.ellipse(0, r * 0.7, r * 1.1, r * 0.4, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = fl ? '#eee' : '#5a2a22'; ctx.strokeStyle = dark; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-r * 0.8, r * 0.7); ctx.quadraticCurveTo(-r * 0.5, -r * 1.4, 0, -r * 1.7); ctx.quadraticCurveTo(r * 0.5, -r * 1.4, r * 0.8, r * 0.7); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#d8ceb0'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(-r * 0.15, r * 0.4 - i * r * 0.4); ctx.lineTo(-r * 0.6, r * 0.2 - i * r * 0.4); ctx.lineTo(-r * 0.15, r * 0.2 - i * r * 0.4); ctx.fill(); }
+    const op = 0.3 + wind * 0.7 + actk * 0.5;
+    ctx.fillStyle = '#e8d8c0'; ctx.beginPath(); ctx.ellipse(r * 0.1, -r * 0.6, r * 0.45, r * 0.3 * op, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#7a1010'; ctx.beginPath(); ctx.arc(r * 0.1 + Math.cos(e.face) * 2, -r * 0.6, r * 0.18 * Math.min(1, op + 0.2), 0, TAU); ctx.fill();
+    return;
+  }
+  if (e.type === 'shadow') { ctx.scale(dir, 1); drawAngel(0, 0, e.face, e.t, true, e.alpha * (fl ? 0.6 : 1)); }
+}
+function drawSerpent(b) {
+  const col = mixHex(BOSS_RIG.leviathan.skin, '#000000', 0.1);
+  for (let i = b.trail.length - 1; i > 2; i -= 3) {
+    const q = b.trail[i], k = 1 - i / 60, r = b.r * (0.35 + k * 0.5);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(q.x, q.y + r * 0.8, r, r * 0.3, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = i % 6 === 0 ? '#163a32' : col; ctx.strokeStyle = '#06100e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#3a7466'; ctx.beginPath(); ctx.moveTo(q.x - r * 0.3, q.y - r * 0.8); ctx.lineTo(q.x, q.y - r * 1.4); ctx.lineTo(q.x + r * 0.3, q.y - r * 0.8); ctx.fill();
+  }
+}
+function drawBoss(b) { drawEnemy(b); }
+
+// ===================== src/gore.js =====================
+// =====================================================================
+//  VÉR ÉS BELSŐSÉGEK – a Pokol nem tiszta hely
+//  Repülő vércseppek (magassággal és gravitációval), a földön maradó
+//  foltok, szétrepülő húscafatok, ottmaradó tetemek.
+// =====================================================================
+const GORE = { drops: [], chunks: [], decals: [], maxDecals: 360 };
+const BLOOD = { demon: ['#6e0a0a', '#8a1010', '#4a0606'], bile: ['#5a6a14', '#76861c', '#3a440a'], ecto: ['#5a6670', '#7a8690', '#3a444c'], angel: ['#c8a040', '#e8c860', '#8a6a20'], gold: ['#8a6a18', '#b08a20', '#5a4410'] };
+function bloodOf(e) {
+  if (!e) return BLOOD.demon;
+  if (e.type === 'fly' || e.type === 'splitter' || (e.ri === 1 && e.type === 'spitter')) return BLOOD.bile;
+  if (e.type === 'wisp' || e.type === 'shadow') return BLOOD.ecto;
+  return BLOOD.demon;
+}
+// vércseppek: x,y a talajon, z a magasság
+function bloodSpray(x, y, a, n, spd = 260, spread = 0.7, pal = BLOOD.demon, size = 1) {
+  if (GORE.drops.length > 520) n = Math.min(n, 3);
+  for (let i = 0; i < n; i++) {
+    const aa = a + rand(-spread, spread), s = rand(0.25, 1) * spd;
+    GORE.drops.push({ x, y, z: rand(8, 22), vx: Math.cos(aa) * s, vy: Math.sin(aa) * s * 0.8, vz: rand(60, 260), r: rand(1.2, 3.2) * size, col: choice(pal), pal });
+  }
+}
+function splat(x, y, r, pal = BLOOD.demon, kind = 'splat') {
+  const d = { x, y, r, rot: rand(0, TAU), col: pal[2], col2: pal[0], kind, seed: Math.floor(rand(0, 1e6)), t: 0 };
+  GORE.decals.push(d); if (GORE.decals.length > GORE.maxDecals) GORE.decals.shift();
+  return d;
+}
+// húscafatok és csontok
+function gibs(e, n, pal) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU), s = rand(80, 300);
+    GORE.chunks.push({ x: e.x, y: e.y, z: rand(6, 20), vx: Math.cos(a) * s, vy: Math.sin(a) * s * 0.8, vz: rand(120, 340), rot: rand(0, TAU), vr: rand(-12, 12),
+      w: rand(3, 7) * (e.r / 13), h: rand(2, 4.5) * (e.r / 13), kind: Math.random() < 0.25 ? 'bone' : 'flesh', pal });
+  }
+}
+// tetem: a démon alakja a földön, alatta terjedő vértócsa
+function corpse(e) {
+  const pal = bloodOf(e), pool = splat(e.x, e.y + e.r * 0.4, e.r * 1.6, pal, 'pool'); pool.grow = 0;
+  const c = { x: e.x, y: e.y, r: e.r, rot: rand(-0.5, 0.5), kind: 'corpse', type: e.type, ri: e.ri, col: (RINGS[e.ri] || RINGS[0]).body, col2: pal[0], seed: Math.floor(rand(0, 1e6)), t: 0, dir: Math.random() < 0.5 ? 1 : -1 };
+  GORE.decals.push(c); if (GORE.decals.length > GORE.maxDecals) GORE.decals.shift();
+}
+function goreUpdate(dt) {
+  for (const q of GORE.drops) {
+    q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt; q.vz -= 900 * dt; q.vx *= 0.985; q.vy *= 0.985;
+    if (q.z <= 0) { q.dead = true; if (Math.random() < 0.55) splat(q.x, q.y, q.r * rand(1.2, 2.6), q.pal, 'drop'); }
+  }
+  GORE.drops = GORE.drops.filter(q => !q.dead);
+  for (const c of GORE.chunks) {
+    if (c.landed) continue;
+    c.x += c.vx * dt; c.y += c.vy * dt; c.z += c.vz * dt; c.vz -= 950 * dt; c.rot += c.vr * dt;
+    if (Math.random() < 0.35) GORE.drops.push({ x: c.x, y: c.y, z: c.z, vx: c.vx * 0.2, vy: c.vy * 0.2, vz: 0, r: 1.4, col: c.pal[0], pal: c.pal });
+    if (c.z <= 0) { if (Math.abs(c.vz) > 140) { c.vz *= -0.3; c.z = 0.1; c.vx *= 0.5; c.vy *= 0.5; } else { c.landed = true; c.z = 0; splat(c.x, c.y, c.w * 1.4, c.pal, 'drop'); } }
+  }
+  if (GORE.chunks.length > 160) GORE.chunks.splice(0, GORE.chunks.length - 160);
+  for (const d of GORE.decals) { d.t += dt; if (d.kind === 'pool' && d.grow < 1) d.grow = Math.min(1, d.grow + dt * 0.5); }
+}
+const inView = (x, y, m = 60) => x > L - m && x < R + m && y > T - m && y < B + m;
+// a talajon lévő nyomok – a démonok alatt rajzolódnak
+function drawGoreUnder() {
+  for (const d of GORE.decals) {
+    if (!inView(d.x, d.y, 80)) continue;
+    const fade = Math.max(0.35, 1 - d.t / 240);
+    ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.rot); ctx.globalAlpha = fade;
+    if (d.kind === 'corpse') drawCorpse(d);
+    else {
+      const r = d.kind === 'pool' ? d.r * (0.4 + 0.6 * d.grow) : d.r;
+      ctx.fillStyle = d.col; ctx.beginPath();
+      for (let k = 0; k < 9; k++) { const a = k / 9 * TAU, rr = r * (0.7 + hash2(d.seed, k, 1) * 0.5); k ? ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr * 0.75) : ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr * 0.75); }
+      ctx.closePath(); ctx.fill();
+      if (d.kind !== 'drop') { ctx.fillStyle = d.col2; ctx.globalAlpha = fade * 0.5; ctx.beginPath(); ctx.ellipse(-r * 0.15, -r * 0.1, r * 0.45, r * 0.3, 0, 0, TAU); ctx.fill(); }
+      if (d.kind === 'splat') for (let k = 0; k < 5; k++) { const a = hash2(d.seed, k, 2) * TAU, rr = r * (1.2 + hash2(d.seed, k, 3) * 0.9); ctx.fillStyle = d.col; ctx.beginPath(); ctx.arc(Math.cos(a) * rr, Math.sin(a) * rr * 0.75, r * 0.14 + hash2(d.seed, k, 4) * 2, 0, TAU); ctx.fill(); }
+    }
+    ctx.restore();
+  }
+  for (const c of GORE.chunks) if (c.landed && inView(c.x, c.y)) drawChunk(c);
+}
+function drawGoreOver() {
+  for (const q of GORE.drops) {
+    if (!inView(q.x, q.y)) continue;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(q.x - q.r * 0.5, q.y - q.r * 0.3, q.r, q.r * 0.6);
+    ctx.fillStyle = q.col; ctx.beginPath(); ctx.ellipse(q.x, q.y - q.z, q.r, q.r * (1 + Math.min(1.5, Math.abs(q.vz) / 300)), 0, 0, TAU); ctx.fill();
+  }
+  for (const c of GORE.chunks) if (!c.landed && inView(c.x, c.y)) drawChunk(c);
+}
+function drawChunk(c) {
+  ctx.save(); ctx.translate(c.x, c.y - c.z); ctx.rotate(c.rot);
+  if (c.kind === 'bone') { ctx.fillStyle = '#d8ceb0'; ctx.fillRect(-c.w, -1.2, c.w * 2, 2.4); ctx.beginPath(); ctx.arc(-c.w, 0, 2, 0, TAU); ctx.arc(c.w, 0, 2, 0, TAU); ctx.fill(); }
+  else { ctx.fillStyle = c.pal[1]; ctx.beginPath(); ctx.ellipse(0, 0, c.w, c.h, 0, 0, TAU); ctx.fill(); ctx.fillStyle = c.pal[2]; ctx.beginPath(); ctx.ellipse(c.w * 0.25, c.h * 0.2, c.w * 0.5, c.h * 0.5, 0, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,220,200,0.25)'; ctx.beginPath(); ctx.ellipse(-c.w * 0.3, -c.h * 0.3, c.w * 0.3, c.h * 0.25, 0, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+function drawCorpse(d) {
+  const s = d.r / 12, k = d.dir;
+  ctx.scale(k * s, s);
+  ctx.fillStyle = shade(d.col, 0.7); ctx.strokeStyle = '#140808'; ctx.lineWidth = 1.5 / s;
+  // végtagok szanaszét
+  ctx.lineCap = 'round'; ctx.strokeStyle = shade(d.col, 0.55); ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(-4, 2); ctx.lineTo(-14, 8); ctx.moveTo(4, 2); ctx.lineTo(12, -6); ctx.moveTo(-2, 8); ctx.lineTo(-6, 18); ctx.moveTo(3, 8); ctx.lineTo(10, 16); ctx.stroke();
+  ctx.fillStyle = shade(d.col, 0.75); ctx.beginPath(); ctx.ellipse(0, 4, 8, 11, 0.3, 0, TAU); ctx.fill();
+  ctx.fillStyle = shade(d.col, 0.6); ctx.beginPath(); ctx.arc(-3, -9, 6, 0, TAU); ctx.fill();
+  ctx.fillStyle = d.col2; ctx.beginPath(); ctx.ellipse(1, 5, 4, 5, 0.2, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#d8ceb0'; for (let i = 0; i < 3; i++) ctx.fillRect(-3 + i * 2.5, 1, 1.2, 6);
+}
+// események: találat, halál, sebesülés
+on('hit', (e, dmg, o) => {
+  if (!e || e.dead) return;
+  const a = angTo(G.p, e), n = Math.min(14, 3 + Math.round(dmg / 6)), big = dmg > e.maxHp * 0.25;
+  bloodSpray(e.x, e.y, a, n, big ? 340 : 240, big ? 0.9 : 0.6, bloodOf(e), e.boss ? 1.6 : 1);
+  e.hurtT = 0.16; e.hurtA = a;
+  if (big && !e.boss && e.act && e.act.ph === 'wind') { e.act = null; e.atk = null; e.stun = Math.max(e.stun || 0, 0.35); floatText(e.x, e.y - e.r - 18, 'MEGTÖRVE', '#e8c8a0', 0.7, 12); }
+  if (Math.random() < 0.3) splat(e.x + rand(-6, 6), e.y + rand(-4, 6), rand(4, 9), bloodOf(e), 'splat');
+});
+on('kill', e => {
+  if (!e) return;
+  const pal = bloodOf(e), a = angTo(G.p, e);
+  bloodSpray(e.x, e.y, a, e.boss ? 60 : 22, e.boss ? 420 : 320, Math.PI, pal, e.boss ? 1.8 : 1.2);
+  bloodSpray(e.x, e.y, a, 10, 420, 0.35, pal, 1.4);
+  gibs(e, e.boss ? 26 : e.type === 'fly' || e.type === 'mini' ? 3 : 6 + Math.round(e.r / 4), pal);
+  splat(e.x, e.y, e.r * 1.4, pal, 'splat');
+  if (e.type !== 'fly' && e.type !== 'wisp' && e.type !== 'shadow') corpse(e);
+  vfx.shake(e.boss ? 18 : e.r > 16 ? 5 : 2.5);
+});
+on('hurt', (d) => { const p = G.p; bloodSpray(p.x, p.y, rand(0, TAU), 6 + Math.round(d / 4), 200, Math.PI, BLOOD.angel, 0.9); });
+on('runStart', () => { GORE.drops.length = 0; GORE.chunks.length = 0; GORE.decals.length = 0; });
 
 // ===================== src/weapons.js =====================
 // =====================================================================

@@ -59,8 +59,9 @@ Internet nem kell hozzá. Az egész játék egyetlen fájl.
 
 - **Egyetlen nagy, bejárható világ**: középen a Purgatórium (Vergiliusz, a fegyvertalapzatok), körülötte hat bűn tája saját tereppel (rózsabokrok, iszap, aranyhalmok, mocsár, lávafolyók, kristályok), északon a hat lakattal lezárt Kevélység. Követő kamera, minitérkép és teljes térkép (**N** / koppintás a minitérképre), bejárási köd.
 - **Helyszínek** minden tájban: névvel ellátott táborok hullámokkal, megszólítható lelkek (Paolo és Francesca, Ciacco, Midász, Belacqua, Filippo Argenti, Sapia, Omberto…), Égi Oltár, ereklyeoltár, a Bűnbánó Kalmár és a bűn démonának arénája.
-- **Véletlen találkozások** felfedezés közben: lesek, vándorló csapatok, bajba jutott lelkek, (néha elátkozott) ereklyetartók.
-- **Nincs töltényeső**: a démonok és a főellenségek egy MI segítségével választanak közelharci, távolsági és különleges mozdulataik közül (harapás, roham, csapás, köpés, becsapódás, teleport…). Minden támadást előre jeleznek, egyszerre csak néhány démon támad, a többi kerülget, és van, aki kitér a lövedékeid elől.
+- **Kijelölt helyek** mindenhol, nincs folyamatos ellenségszülés: démonbarlangok karóba húzott tetemekkel és ketrecekkel, romok és látványosságok feliratokkal, bajba jutott lelkek, (néha elátkozott) ereklyetartók. A Bűnbánó Kalmár egy bekerített menedékben árul, ahová démon nem léphet be.
+- **Sötét, véres hangulat**: vér fröccsen minden találatnál, a földön megmaradnak a foltok, a megölt démonok szétszakadnak, a tetemük ott marad.
+- **Nincs töltényeső**: a végtagos, animált démonok (felkészülés, lecsapás, kifújás, megrándulás, tántorgás) és a fegyveres főellenségek egy MI segítségével választanak közelharci, távolsági és különleges mozdulataik közül (harapás, roham, csapás, köpés, becsapódás, teleport…). Minden támadást előre jeleznek, egyszerre csak néhány démon támad, a többi kerülget, és van, aki kitér a lövedékeid elől.
 - Hat fegyver áll a talapzatokon. Egyszerre egy közelharci és egy távolsági lehet nálad, köztük X / Tab / FEGYVER gombbal váltasz:
 
 | Fegyver | Típus | Lényeg |
@@ -78,7 +79,7 @@ Internet nem kell hozzá. Az egész játék egyetlen fájl.
 
 ## Fejlesztőknek
 
-A forrás a `src/` mappában van (`core.html` a motor, `world.js` a nyílt világ, `ai.js` az ellenség-MI, `weapons.js`, `upgrades.js`, `levels.js` a tartalom, `API.md` a leírás). A játékfájlt a `python3 build.py` állítja elő, a `tools/smoke.js` egy Playwright-füstteszt.
+A forrás a `src/` mappában van (`core.html` a motor, `world.js` a nyílt világ, `ai.js` az ellenség-MI, `rig.js` a démonok rajza és animációja, `gore.js` a vér és a belsőségek, `weapons.js`, `upgrades.js`, `levels.js` a tartalom, `API.md` a leírás). A játékfájlt a `python3 build.py` állítja elő, a `tools/smoke.js` egy Playwright-füstteszt.
 
 ## A gyűrűk átkai
 
