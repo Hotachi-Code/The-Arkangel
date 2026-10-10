@@ -2325,7 +2325,7 @@ function drawHUD() {
   const lvw = G.wlv[G.weapon] || 0; for (let i = 0; i < lvw; i++) { ctx.fillStyle = wcol; ctx.beginPath(); ctx.arc(368 + i * 7, 49, 2, 0, TAU); ctx.fill(); }
   ctx.fillStyle = G.morph[G.weapon] ? RAR.morph.c : '#aaa'; ctx.font = `9px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(((wdh && wdh.short) || '').toUpperCase(), 378, 60);
   // ereklyék a fal sávjában
-  G.relics.forEach((id, i) => { const r = RELICS[id]; if (!r) return; const x = 46 + i * 20, y = 80; ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.arc(x, y, 9, 0, TAU); ctx.fill(); ctx.strokeStyle = r.col || RAR.relic.c; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = r.col || RAR.relic.c; ctx.font = `11px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(r.i || '✦', x, y + 4); });
+  G.relics.forEach((id, i) => { const r = RELICS[id]; if (!r) return; const x = 46 + (i % 24) * 20, y = 80 + Math.floor(i / 24) * 20; ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.arc(x, y, 9, 0, TAU); ctx.fill(); ctx.strokeStyle = r.col || RAR.relic.c; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = r.col || RAR.relic.c; ctx.font = `11px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(r.i || '✦', x, y + 4); });
   // gyűrű neve
   ctx.textAlign = 'center'; ctx.font = `700 20px ${SERIF}`; ctx.fillStyle = rg.col; ctx.fillText(G.hub ? 'PURGATÓRIUM' : `${ROMAN[G.ring]}. GYŰRŰ — ${rg.name.toUpperCase()}`, 560, 28);
   ctx.font = `12px ${SANS}`; ctx.fillStyle = '#9a8fa8';
