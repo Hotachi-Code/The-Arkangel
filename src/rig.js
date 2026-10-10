@@ -28,7 +28,7 @@ function poseOf(e) {
   if (mv) { const w = Math.sin(e.t * 10); P.leg = w * 0.7 * mv; P.armB += w * 0.35 * mv; P.armF -= w * 0.35 * mv; P.crouch += Math.abs(w) * 1.2 * mv; P.lean += 0.12 * mv; }
   const A = e.act;
   if (A && !(e.stun > 0)) {
-    const m = A.m, sh = m.shape, dur = A.ph === 'wind' ? m.wind : A.ph === 'act' ? m.act : m.rec, k = clamp(A.t / Math.max(0.01, dur), 0, 1);
+    const m = A.m, sh = m.shape, dur = A.ph === 'wind' ? (A.wind || m.wind) : A.ph === 'act' ? m.act : m.rec, k = clamp(A.t / Math.max(0.01, dur), 0, 1);
     if (sh === 'circle') {
       if (A.ph === 'wind') { P.armB = P.armF = -2.7 * ease(k); P.bendB = P.bendF = -0.3; P.crouch = -3 * k; P.lean = -0.2 * k; P.shake = k > 0.7 ? 1 : 0; }
       else if (A.ph === 'act') { P.armB = P.armF = -2.7 + 3.9 * ease(Math.min(1, k * 3)); P.crouch = 6; P.lean = 0.3; }
@@ -48,6 +48,10 @@ function poseOf(e) {
     } else if (sh === 'blink') { P.crouch = 5 * k; P.lean = 0.3 * k; P.armB = P.armF = 1.1 * k; }
     else if (sh === 'summon' || sh === 'howl' || sh === 'pull') { const q = A.ph === 'wind' ? k : 1; P.armB = -2.4 * q; P.armF = -2.4 * q; P.bendB = P.bendF = 0.4; P.lean = -0.3 * q; P.mouth = 1 * q; P.glow = q; P.shake = q * 0.5; }
     else if (sh === 'hop') { P.crouch = -4; P.lean = -0.3; }
+    else if (sh === 'leap') { if (A.ph === 'wind') { P.crouch = 7 * k; P.lean = 0.35 * k; P.armB = P.armF = 1.3 * k; P.shake = k > 0.7 ? 0.6 : 0; } else if (A.ph === 'act') { P.armB = P.armF = -2.6; P.crouch = -3; P.lean = 0.2; P.leg = 0.8; P.mouth = 1; } else { P.crouch = 5 * (1 - k); P.armB = P.armF = 1.1; } }
+    else if (sh === 'guard') { P.armB = 1.5; P.armF = 1.7; P.bendB = P.bendF = -1.9; P.lean = -0.08; P.crouch = 2.5; P.mouth = 0.2; }
+    else if (sh === 'grab') { if (A.ph === 'wind') { P.armB = P.armF = -0.9 * k; P.lean = -0.25 * k; P.crouch = 3 * k; P.mouth = 0.6 * k; } else { P.armB = 1.5; P.armF = 1.7; P.bendB = P.bendF = 0.2; P.lean = 0.45; P.mouth = 1; } }
+    else if (sh === 'mend') { const q = A.ph === 'wind' ? k : 1; P.armB = P.armF = -2.2 * q; P.lean = -0.2 * q; P.glow = q; }
   }
   if (e.hurtT > 0) { const h = e.hurtT / 0.16; P.lean -= 0.4 * h; P.mouth = Math.max(P.mouth, 0.8); P.armB -= 0.6 * h; P.armF += 0.4 * h; }
   if (e.stun > 0) { P.lean = Math.sin(gt * 7) * 0.2; P.armB = 1.3; P.armF = 1.1; P.crouch = 5; P.mouth = 0.5; }
@@ -173,7 +177,7 @@ function drawEnemy(e) {
     ctx.strokeStyle = `rgba(120,10,10,${0.6 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(e.x, e.y, rr, a0, a1); ctx.stroke();
   }
   if (A && A.ph === 'act' && A.m.shape === 'circle' && A.t < 0.1) { ctx.fillStyle = 'rgba(80,60,50,0.35)'; ctx.beginPath(); ctx.arc(e.x, e.y + r * 0.6, A.m.r * 0.8, 0, TAU); ctx.fill(); }
-  ctx.translate(e.x, e.y + r * 0.85);
+  ctx.translate(e.x, e.y + r * 0.85 - (e.z || 0));
   if (e.boss && e.intro > 0) { const k = Math.min(1, (2.2 - e.intro) / 1.2); ctx.scale(k, k); }
   if (e.boss && e.inv > 0) ctx.globalAlpha *= 0.6 + Math.sin(gt * 30) * 0.3;
   if (!G.hub && e.ri === 6 && e.spawn <= 0 && !e.boss) { // csábító aura (Kevélység)
@@ -183,6 +187,8 @@ function drawEnemy(e) {
   const R0 = e.boss ? BOSS_RIG[e.key] : RIG[e.type];
   if (R0) drawRig(e, R0, e.boss ? r / 13 : r / 10.5, dir);
   else drawBlobDemon(e, dir, fl);
+  if (e.guarding) { ctx.strokeStyle = 'rgba(220,210,190,0.55)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, -r * 1.1, r * 1.5, (dir > 0 ? 0 : Math.PI) - 0.9, (dir > 0 ? 0 : Math.PI) + 0.9); ctx.stroke(); }
+  if (e.broken > 0) { ctx.strokeStyle = `rgba(232,200,144,${0.4 + Math.sin(gt * 12) * 0.3})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, 0, r * 1.4, r * 0.45, 0, 0, TAU); ctx.stroke(); }
   if (e.elite) { ctx.strokeStyle = 'rgba(216,176,80,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, 0, r * 1.2, r * 0.4, 0, 0, TAU); ctx.stroke(); }
   ctx.restore();
   // állapotjelzők

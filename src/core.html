@@ -393,9 +393,9 @@ function onClick(btn) {
 // ---------- futam ----------
 function makePlayer() {
   return {
-    x: CX, y: CY, r: 13, hp: 100, maxHp: 100, spd: 230, dmg: 12, fireDelay: 0.24, shotSpd: 560, range: 0.85, shots: 1, spreadA: 0.17,
-    pierce: 0, homing: 0, crit: 0.05, size: 5, back: 0, burn: 0, orbs: 0, lifesteal: 0, regen: 0, regenT: 0, dashCd: 0.85, dashT: 0, dashCool: 0,
-    dashA: 0, dashDmg: 0, dashHit: [], inv: 0, grace: 0, maxGrace: 100, graceGain: 1, novaMul: 1, shield: 0, shieldMax: 0, shieldT: 0,
+    x: CX, y: CY, r: 13, hp: 85, maxHp: 85, spd: 225, dmg: 8.5, fireDelay: 0.24, st: 100, stMax: 100, stT: 0, shotSpd: 560, range: 0.85, shots: 1, spreadA: 0.17,
+    pierce: 0, homing: 0, crit: 0.05, size: 5, back: 0, burn: 0, orbs: 0, lifesteal: 0, regen: 0, regenT: 0, dashCd: 0.95, dashT: 0, dashCool: 0,
+    dashA: 0, dashDmg: 0, dashHit: [], inv: 0, grace: 0, maxGrace: 100, graceGain: 0.65, novaMul: 1, shield: 0, shieldMax: 0, shieldT: 0,
     soulMul: 1, soulHeal: 0, fireT: 0, face: 0, slow: 0, t: 0, atkSpd: 1, vx: 0, vy: 0,
   };
 }
@@ -465,7 +465,7 @@ function ringBanner() {
   const r = RG();
   G.banner = { title: `${ROMAN[G.ring]}. GYŰRŰ — ${r.name.toUpperCase()}`, sub: r.latin, line: r.verse, curse: CURSE[G.ring], t: 0, dur: 5.2, col: r.col };
 }
-const eDmg = () => 9 + G.lvl * 1.5, cDmg = () => 11 + G.lvl * 2;
+const eDmg = () => 13 + G.lvl * 2.4, cDmg = () => 15 + G.lvl * 2.8;
 
 // ---------- pálya generálás ----------
 const DIRS = [[0, -1, 'n'], [1, 0, 'e'], [0, 1, 's'], [-1, 0, 'w']];
@@ -641,6 +641,13 @@ function moveDir() {
 }
 function dash() {
   const p = G.p; if (p.dashCool > 0 || p.dashT > 0 || G.dying) return;
+  const cost = p.held ? 50 : 34;
+  if (p.st < cost) { if (G.msgT2 === undefined || G.time - G.msgT2 > 0.8) { G.msgT2 = G.time; floatText(p.x, p.y - 40, 'Kifulladtál', '#c8b8a0', 0.7, 13); } return; }
+  p.st -= cost; p.stT = 0.6;
+  if (p.held) { const e = p.held.e; p.held = null; floatText(p.x, p.y - 40, 'KISZABADULTÁL', '#e8d8b0', 0.8, 14); if (e) { e.stun = Math.max(e.stun || 0, 0.5); } }
+  // tökéletes kitérés: egy ütés vagy lövedék épp eltalált volna
+  const close = G.enemies.some(e => e.act && ((e.act.ph === 'wind' && (e.act.wind || e.act.m.wind) - e.act.t < 0.22) || e.act.ph === 'act') && dist(e, p) < (e.act.m.r || 90) + 50) || G.bullets.some(b => !b.f && !b.dead && Math.hypot(b.x - p.x, b.y - p.y) < 70);
+  if (close) { G.slowmo = 0.4; p.grace = Math.min(p.maxGrace, p.grace + 10); floatText(p.x, p.y - 50, 'TÖKÉLETES KITÉRÉS', '#f0dca0', 1, 15); p.st = Math.min(p.stMax, p.st + 15); }
   const m = moveDir();
   p.dashA = (m.x || m.y) ? Math.atan2(m.y, m.x) : p.face;
   p.dashT = 0.17; p.dashCool = p.dashCd; p.dashHit = []; sfx('dash');
@@ -651,7 +658,7 @@ function nova() {
   p.grace = 0; G.novaFx = { t: 0 }; G.shake = 12; sfx('nova');
   emit('nova');
   G.bullets = G.bullets.filter(b => b.f);
-  for (const e of G.enemies) if (!e.dead && dist(e, p) < 320 + e.r) dmgEnemy(e, p.dmg * 7 * p.novaMul, false, true);
+  for (const e of G.enemies) if (!e.dead && dist(e, p) < 320 + e.r) dmgEnemy(e, p.dmg * 5.5 * p.novaMul, false, true);
   part(p.x, p.y, '#fff6c8', 80, 500, 0.8, 4);
 }
 function interact() {
@@ -700,7 +707,7 @@ function killEnemy(e, silent) {
   if (e.boss) { bossDown(e); return; }
   const ns = Math.round((e.type === 'brute' || e.type === 'turret' ? randi(2, 4) : randi(0, 2)) * p.soulMul);
   for (let i = 0; i < ns; i++) dropPickup('soul', e.x, e.y);
-  if (Math.random() < 0.07) dropPickup('heart', e.x, e.y);
+  if (Math.random() < 0.035) dropPickup('heart', e.x, e.y);
 }
 function dropPickup(type, x, y) {
   const a = rand(0, TAU), s = rand(60, 180);
@@ -711,7 +718,7 @@ function hurtPlayer(d, src) {
   if (p.inv > 0 || p.dashT > 0 || G.dying || state !== 'play') return;
   d = modify('dmgIn', d, src); if (d <= 0) return;
   if (p.shield > 0) { p.shield--; p.shieldT = 0; p.inv = 0.6; sfx('block'); part(p.x, p.y, '#8fe8ff', 25, 220, 0.5, 3); return; }
-  p.hp -= d; p.inv = 0.9; G.shake = Math.max(G.shake, 8); G.hurtFx = 0.35; sfx('hurt');
+  p.hp -= d; p.inv = 0.55; G.shake = Math.max(G.shake, 8); G.hurtFx = 0.35; sfx('hurt');
   part(p.x, p.y, '#ff3040', 20, 220, 0.6, 3);
   if (p.hp <= 0 && modify('revive', false)) { p.hp = Math.max(1, p.hp); p.inv = 2; }
   if (p.hp > 0) { curseHit(src); emit('hurt', d, src); }
@@ -727,7 +734,7 @@ function bossDown(b) {
   G.bullets = G.bullets.filter(q => q.f); G.beams.length = 0; G.hazards.length = 0; G.charm = 0;
   for (let i = 0; i < 14; i++) dropPickup('soul', b.x, b.y);
   dropPickup('heart', b.x, b.y);
-  const p = G.p; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.3);
+  const p = G.p; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.15);
   if (b.key === 'lucifer') G.winT = 3.5; else G.afterBoss = 1.6;
 }
 
@@ -854,11 +861,21 @@ function updatePlayer(dt) {
   if (p.dashCool > 0) p.dashCool -= dt;
   if (p.slow > 0) p.slow -= dt;
   if (p.lustT > 0) p.lustT -= dt;
+  if (p.stT > 0) p.stT -= dt; else p.st = Math.min(p.stMax, p.st + 40 * dt);
+  if (p.held) {
+    const h = p.held, e = h.e; h.t -= dt; h.tick -= dt;
+    if (!e || e.dead || e.stun > 0) p.held = null;
+    else {
+      p.x = e.x + Math.cos(e.face) * (e.r + 8); p.y = e.y + Math.sin(e.face) * (e.r + 8);
+      if (h.tick <= 0) { h.tick = 0.3; bloodSpray(p.x, p.y, rand(0, TAU), 4, 160, Math.PI, BLOOD.angel, 0.8); }
+      if (h.t <= 0) { p.held = null; p.inv = 0; hurtPlayer(h.dmg, e); p.x += Math.cos(e.face) * 50; p.y += Math.sin(e.face) * 50; vfx.shake(12); sfx('boom'); }
+    }
+  }
   if (p.swing > 0) p.swing -= dt;
   if (p.regen) { p.regenT += dt; if (p.regenT > 3 / p.regen) { p.regenT = 0; p.hp = Math.min(p.maxHp, p.hp + 1); } }
   if (p.shield < p.shieldMax) { p.shieldT += dt; if (p.shieldT > 12) { p.shieldT = 0; p.shield++; sfx('block'); } }
 
-  const m = moveDir(); let ml = Math.hypot(m.x, m.y) || 1;
+  const m = p.held ? { x: 0, y: 0 } : moveDir(); let ml = Math.hypot(m.x, m.y) || 1;
   let sp = p.spd * (p.slow > 0 ? 0.5 : 1) * (tileAt(p.x, p.y) === K_SLOW ? 0.7 : 1);
   let vx = m.x / ml * sp, vy = m.y / ml * sp;
   if (p.dashT > 0) {
@@ -895,7 +912,7 @@ function updatePlayer(dt) {
   const tm = touch.on && aim === null ? touchMoveDir() : null;
   p.face = aim !== null ? aim : tm ? Math.atan2(tm.y, tm.x) : touch.on ? p.face : Math.atan2(wm.y - p.y, wm.x - p.x);
   p.fireT = Math.max(0, p.fireT - dt);
-  if (p.lustT > 0) aim = null;
+  if (p.lustT > 0 || p.held) aim = null;
   p.atkSpd = 0.24 / p.fireDelay;
   const wd = WEAPONS[G.weapon];
   if (wd) { const ws = wstate(G.weapon); ws.t += dt; if (ws.cd > 0) ws.cd -= dt * p.atkSpd; wd.update(p, ws, dt, aim); }
@@ -1369,6 +1386,7 @@ function drawHUD() {
   const full = p.grace >= p.maxGrace;
   bar(16, 36, 220, 10, p.grace / p.maxGrace, full ? `hsl(${45 + Math.sin(gt * 6) * 10},100%,70%)` : '#c9a640');
   ctx.fillStyle = full ? '#fff6c8' : '#aa9a70'; ctx.font = `bold 10px ${SANS}`; ctx.fillText(full ? (touch.on ? 'SZENT NOVA KÉSZ — NOVA gomb' : 'SZENT NOVA KÉSZ — [Q] / jobb klikk') : 'Kegyelem', 22, 45);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(15, 50, 222, 6); ctx.fillStyle = p.st < 34 ? '#7a5a3a' : '#a8b878'; ctx.fillRect(16, 51, 220 * clamp(p.st / p.stMax, 0, 1), 4);
   for (let i = 0; i < p.shieldMax; i++) { ctx.fillStyle = i < p.shield ? '#8fe8ff' : '#333'; ctx.font = `14px ${SANS}`; ctx.fillText('⛨', 245 + i * 16, 25); }
   ctx.font = `bold 15px ${SANS}`; ctx.fillStyle = '#8fe8ff'; ctx.fillText(`◈ ${G.souls}`, 250, 52);
   // kitérés
@@ -1611,7 +1629,7 @@ function render() {
 function frame(now) {
   const dt = Math.min(0.033, Math.max(0, (now - last) / 1000)); last = now; gt += dt;
   try {
-    if (state === 'play') update(dt);
+    if (state === 'play') { let sdt = dt; if (G.slowmo > 0) { G.slowmo -= dt; sdt = dt * 0.35; } update(sdt); }
     else updateAmbient(dt);
     if (state === 'talk' && G && G.talk) { G.talk.t += dt; if (G.fade > 0) G.fade = Math.max(0, G.fade - dt * 3); }
     updateMusic(dt);
