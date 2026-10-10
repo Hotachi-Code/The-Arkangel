@@ -55,13 +55,27 @@ Internet nem kell hozzá. Az egész játék egyetlen fájl.
 | VI. | Irigység (Invidia) | Leviatán |
 | VII. | **Kevélység (Superbia)** | **Lucifer** (háromfázisú főellenség) |
 
-## Purgatórium és fegyverek
+## Purgatórium, történet és fegyverek
 
-- A futam a Purgatóriumban kezdődik. A két talapzaton választhatsz fegyvert (később X-szel / FEGYVER gombbal bármikor cserélhetsz):
-  - **Szent Fény**: távolsági fénylövedékek.
-  - **Égi Penge**: közelharci suhintás. Nagyobb sebzés, egyszerre több démont is ér, és kivágja az útjába kerülő lövedékeket.
+- A futam a Purgatóriumban kezdődik, ahol **Vergiliusz** fogad. Minden gyűrű kézzel tervezett pálya, névvel ellátott termekkel, megszólítható lelkekkel (Paolo és Francesca, Ciacco, Midász, Belacqua, Filippo Argenti, Sapia, Omberto…), és a főellenség előtt párbeszéddel.
+- Hat fegyver áll a talapzatokon. Egyszerre egy közelharci és egy távolsági lehet nálad, köztük X / Tab / FEGYVER gombbal váltasz:
+
+| Fegyver | Típus | Lényeg |
+|---|---|---|
+| **Égi Penge** | közelharci | háromütéses kombó, a vágás hárítja a lövedékeket, a harmadik egy szúrás |
+| **Lélekarató Kasza** | közelharci | széles aratás; nyomva tartva forgószél, a megölt démonok lelke gyógyít |
+| **Ítélet Pörölye** | közelharci | lassú, hatalmas csapás: lökéshullám, kábítás, fényrepedések |
+| **Szeráf Íja** | távolsági | koppintás: tollas nyilak; nyomva tartva feltöltött, mindenen áthatoló fénylándzsa |
+| **Jerikói Harsona** | távolsági | hanghullámok, amelyek hátralökik a démonokat és elnyelik a lövedékeket; minden 3. egy „fanfár” |
+| **Az Ige Könyve** | távolsági | követő szentírás-lapok, amelyek felrobbanó rúnajelet nyomnak a démonokra |
+
+- Minden fegyver 4 szintet léphet, 3. szinttől pedig **két átalakulás** közül választhatsz (pl. Lángoló Kard, Holdsarló, Mennydörgő Pöröly, Csillageső, Utolsó Harsona, Kerubok Kórusa).
+- **62 áldás** négy ritkasággal (közönséges, ritka, epikus, legendás), **31 ereklye** (Júdás ezüstje, Lázár csontja, Noé galambja, Dávid parittyája…) és **8 ereklye-egyesülés** (pl. Dávid parittyája + Góliát sisakja → Óriásölő Kő).
 - Az első hat bűn tetszőleges sorrendben járható be. A nehézség azzal nő, hány bűnt győztél már le.
-- Egy főbűn legyőzése után a portál visszavisz a Purgatóriumba, és egy lakat lehullik a Kevélység kapujáról.
+
+## Fejlesztőknek
+
+A forrás a `src/` mappában van (`core.html` a motor, `weapons.js`, `upgrades.js`, `levels.js` a tartalom, `API.md` a leírás). A játékfájlt a `python3 build.py` állítja elő, a `tools/smoke.js` egy Playwright-füstteszt.
 
 ## A gyűrűk átkai
 

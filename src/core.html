@@ -240,7 +240,7 @@ function nearShopItem() {
   for (const it of G.room.items) if (!it.sold && dist(it, G.p) <= 40) return it;
   return null;
 }
-function tbVisible(k) { return k !== 'use' || !!nearShopItem(); }
+function tbVisible(k) { if (G && G.hub && (k === 'swap' || k === 'nova')) return false; return k !== 'use' || !!nearShopItem(); }
 function tryLandscape() {
   try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { }
   try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => { }); } catch (e) { }
@@ -416,10 +416,10 @@ function startRun() {
 function makeHub() {
   const gates = GATE_ORDER.map((ri, i) => { const a = Math.PI + (i + 0.5) / 7 * Math.PI; return { ri, x: CX + Math.cos(a) * 385, y: CY + 150 + Math.sin(a) * 300 }; });
   const ids = Object.keys(WEAPONS).sort((a, b) => (WEAPONS[a].kind === 'melee' ? 0 : 1) - (WEAPONS[b].kind === 'melee' ? 0 : 1));
-  const n = ids.length, sp = Math.min(118, 720 / Math.max(1, n));
-  const peds = ids.map((w, i) => ({ w, x: CX + (i - (n - 1) / 2) * sp + (WEAPONS[w].kind === 'melee' ? -14 : 14), y: B - 98 }));
+  const n = ids.length, sp = Math.min(100, 640 / Math.max(1, n));
+  const peds = ids.map((w, i) => ({ w, x: CX + (i - (n - 1) / 2) * sp + (WEAPONS[w].kind === 'melee' ? -14 : 14), y: B - 66 }));
   return { x: 0, y: 0, type: 'hub', cleared: true, visited: true, seen: true, obst: [], pickups: [], items: [], taken: false, cache: null,
-    doors: { n: false, e: false, s: false, w: false }, gates, peds, npc: { x: CX, y: CY + 86, name: (LEVELS.hub && LEVELS.hub.guide) || 'Vergiliusz', look: 'guide' } };
+    doors: { n: false, e: false, s: false, w: false }, gates, peds, npc: { x: CX, y: CY + 112, name: (LEVELS.hub && LEVELS.hub.guide) || 'Vergiliusz', look: 'guide' } };
 }
 function lockPos(k) {
   const g = G.hubRoom.gates.find(q => q.ri === 6), a = Math.PI + (k + 0.5) / 6 * Math.PI;
@@ -432,7 +432,7 @@ function enterHub(fromRing) {
   emit('hubEnter', fromRing);
   const p = G.p;
   if (fromRing === null) {
-    p.x = CX; p.y = B - 40;
+    p.x = CX; p.y = B - 26;
     G.banner = { title: 'PURGATÓRIUM', sub: 'A tisztulás hegye', line: 'Válassz fegyvert, aztán lépj be egy kapun.', t: 0, dur: 4.2, col: PURG.col };
   } else {
     G.flags.hubTalk2 = false;
@@ -1345,7 +1345,7 @@ function updEnemy(e, dt) {
   if (e.orbCd > 0) e.orbCd -= dt;
   e.t += dt;
   if (e.burn > 0) {
-    e.burn -= dt; e.hp -= p.dmg * 0.4 * p.burn * dt;
+    e.burn -= dt; e.hp -= p.dmg * 0.4 * Math.max(1, p.burn) * dt;
     if (Math.random() < 0.3) G.parts.push({ x: e.x + rand(-e.r, e.r), y: e.y + rand(-e.r, e.r), vx: 0, vy: -60, life: 0.4, max: 0.4, col: '#ffd27a', size: 3 });
     if (e.hp <= 0) { killEnemy(e); return; }
   }
@@ -1794,7 +1794,7 @@ function drawAngel(x, y, face, t, dark, alpha, scale = 1, weapon = null, swing =
     // égi penge: suhintáskor végigsöpör az íven
     const k = swing > 0 ? 1 - swing / 0.2 : 0.5, ba = face + (k - 0.5) * 2.2;
     ctx.save(); ctx.rotate(ba + Math.PI / 2); ctx.shadowColor = '#ffe9a8'; ctx.shadowBlur = 12; drawBlade(0, -12, 0.95); ctx.restore(); ctx.shadowBlur = 0;
-  } else {
+  } else if (dark || !(G && WEAPONS[G.weapon] && WEAPONS[G.weapon].drawHeld) || state === 'title' || state === 'story') {
     // fénygömb (célzás)
     ctx.fillStyle = dark ? '#b04fff' : '#fff6c8'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 10;
     ctx.beginPath(); ctx.arc(Math.cos(face) * 20, Math.sin(face) * 20 - 2, 3, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
@@ -2160,7 +2160,6 @@ function drawBloom() {
   g.setTransform(0.25, 0, 0, 0.25, 0, 0); g.globalCompositeOperation = 'lighter';
   if (!(G.dying > 0)) {
     glowDot(p.x, p.y - 25, 10, '#ffd75e', 0.55); glowDot(p.x, p.y, 22, '#fff1c4', 0.12);
-    if (G.weapon === 'blade') glowDot(p.x + Math.cos(p.face) * 24, p.y + Math.sin(p.face) * 24, 10, '#ffe9a8', 0.6);
     for (let i = 0; i < p.orbs; i++) { const a = G.orbA + i * TAU / p.orbs; glowDot(p.x + Math.cos(a) * 48, p.y + Math.sin(a) * 48, 14, '#ffd75e', 0.9); }
   }
   for (const x of TORCH_X) glowDot(x, 76, 14, G.hub ? '#9fd0ff' : RG().col, 0.9);

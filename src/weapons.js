@@ -49,6 +49,7 @@
         ctx.globalAlpha = al * 0.45; ctx.fillStyle = o.col; crescent(ctx, g.x, g.y, o.r + 4, g.a0, g.a1, o.w * 1.25); ctx.fill();
         ctx.globalAlpha = al * 0.85; crescent(ctx, g.x, g.y, o.r, g.a0, g.a1, o.w * 0.7); ctx.fill();
         ctx.globalAlpha = al; ctx.fillStyle = o.col2 || '#ffffff'; crescent(ctx, g.x, g.y, o.r, g.a0, g.a1, o.w * 0.22); ctx.fill();
+        ctx.globalAlpha = al * 0.7; ctx.strokeStyle = o.col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(g.x, g.y, o.r + 6, g.a0, g.a1, g.a1 < g.a0); ctx.stroke();
         ctx.restore(); },
       glw() { const g = geo(); if (!g.ok) return; gctx.globalAlpha = 0.8 * (1 - g.k); gctx.strokeStyle = o.col; gctx.lineWidth = o.w;
         gctx.beginPath(); gctx.arc(g.x, g.y, o.r - o.w * 0.3, g.a0, g.a1, g.a1 < g.a0); gctx.stroke(); } });
@@ -73,10 +74,15 @@
     let t = 0;
     return addFx({ tag: 'beam', upd(dt) { t += dt; return t < dur; },
       drw() { const k = t / dur, al = 1 - k, ww = w * (1 - k * 0.6); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-        ctx.globalAlpha = al * 0.25; ctx.strokeStyle = col; ctx.lineWidth = ww * 2.4; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-        ctx.globalAlpha = al * 0.6; ctx.lineWidth = ww; ctx.stroke();
-        ctx.globalAlpha = al; ctx.strokeStyle = core; ctx.lineWidth = Math.max(1, ww * 0.3); ctx.stroke(); ctx.restore(); },
-      glw() { gctx.globalAlpha = 0.8 * (1 - t / dur); gctx.strokeStyle = col; gctx.lineWidth = w * 2; gctx.lineCap = 'round'; gctx.beginPath(); gctx.moveTo(x1, y1); gctx.lineTo(x2, y2); gctx.stroke(); } });
+        ctx.globalAlpha = al * 0.18; ctx.strokeStyle = col; ctx.lineWidth = ww * 2.2; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        ctx.globalAlpha = al * 0.55; ctx.lineWidth = ww; ctx.stroke();
+        ctx.globalAlpha = al; ctx.strokeStyle = core; ctx.lineWidth = Math.max(1, ww * 0.22); ctx.stroke();
+        // fény-gyűrűk a sugár mentén
+        const len = Math.hypot(x2 - x1, y2 - y1), an = Math.atan2(y2 - y1, x2 - x1), nr = Math.min(10, Math.floor(len / 70));
+        ctx.globalAlpha = al * 0.6; ctx.strokeStyle = col; ctx.lineWidth = 1.2;
+        for (let i = 1; i <= nr; i++) { const d = (i / (nr + 1)) * len + k * 40, cx = x1 + Math.cos(an) * d, cy = y1 + Math.sin(an) * d; ctx.beginPath(); ctx.ellipse(cx, cy, 3 + k * 4, ww * (0.7 + k), an, 0, TAU); ctx.stroke(); }
+        ctx.restore(); },
+      glw() { gctx.globalAlpha = 0.5 * (1 - t / dur); gctx.strokeStyle = col; gctx.lineWidth = w * 1.3; gctx.lineCap = 'round'; gctx.beginPath(); gctx.moveTo(x1, y1); gctx.lineTo(x2, y2); gctx.stroke(); } });
   }
   // kitáguló gyűrű, saját színnel és vastagsággal (lighter)
   function ringFx(x, y, r0, r1, col, dur, w, under) {
@@ -98,6 +104,13 @@
   // ki melyik fegyverrel sebzett utoljára (ölés-hatásokhoz)
   const KILL = {};
   on('hit', (e, d, o) => { if (o && o.tag) { e._wt = o.tag; e._wtT = G.time; } });
+  // saját égés (a mag égése csak a p.burn áldással sebez): o.wburn mp-ig ég a démon
+  on('hit', (e, d, o) => { if (o && o.wburn) { e.wBurn = Math.max(e.wBurn || 0, o.wburn); e.burn = Math.max(e.burn || 0, 0.2); } });
+  on('tick', dt => {
+    if (!G || G.hub) return; const p = G.p;
+    for (const e of G.enemies) { if (!(e.wBurn > 0) || e.dead) continue; e.wBurn -= dt; if (e.burn < 0.1) e.burn = 0.1;
+      if (!canHit(e)) continue; e.hp -= p.dmg * 0.45 * dt; if (e.hp <= 0) killEnemy(e); }
+  });
   on('kill', e => { if (!e || !e._wt || G.time - e._wtT > 0.6) return; const f = KILL[e._wt]; if (f) f(e); });
 
   // ---------- hangok ----------
@@ -145,7 +158,7 @@
     let t = 0, tick = 0; const dur = 1.7, skip = new Set(), p = G.p;
     addFx({ tag: 'flame', under: true, upd(dt) {
         t += dt; tick -= dt;
-        if (tick <= 0) { tick = 0.25; skip.clear(); for (const q of pts) hitCircle(q.x, q.y, 20, p.dmg * 0.3, { burn: 2.5, tag: 'blade', silentNum: true }, skip); }
+        if (tick <= 0) { tick = 0.25; skip.clear(); for (const q of pts) hitCircle(q.x, q.y, 20, p.dmg * 0.2, { wburn: 2.5, tag: 'blade', silentNum: true }, skip); }
         if (partOK(1100) && Math.random() < 0.6) { const q = choice(pts); G.parts.push({ x: q.x + rand(-10, 10), y: q.y + rand(-8, 8), vx: rand(-15, 15), vy: rand(-90, -40), life: 0.5, max: 0.5, col: Math.random() < 0.5 ? '#ff7a2a' : '#ffd27a', size: rand(2, 3.5) }); }
         return t < dur; },
       drw() { const al = Math.min(1, (dur - t) * 1.5); ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -159,7 +172,7 @@
   function justiceWave(p, a, big) {
     const pl = BLADE.blade_justice, sp = (big ? 640 : 560) * spdK(p);
     pBullet(p.x + Math.cos(a) * 18, p.y + Math.sin(a) * 18, a, sp, {
-      r: big ? 24 : 14, dmg: p.dmg * (big ? 2.2 : 0.7) * DM('blade'), life: (big ? 0.85 : 0.3) * rangeK(p), pierce: 999, ghost: big, col: pl.col,
+      r: big ? 24 : 14, dmg: p.dmg * (big ? 1.8 : 0.5) * DM('blade'), life: (big ? 0.85 : 0.3) * rangeK(p), pierce: 999, ghost: big, col: pl.col,
       ho: { tag: 'blade', kb: big ? 240 : 100 }, big,
       upd(b) { if (b.big) cutWhere(q => Math.hypot(q.x - b.x, q.y - b.y) < b.r + q.r + 4, pl.col); return true; },
       drw(b) { const ang = Math.atan2(b.vy, b.vx), s = b.big ? 1.6 : 1, al = Math.min(1, b.life * 6); ctx.globalAlpha = al;
@@ -186,7 +199,7 @@
     const pl = bPal(), mo = MO('blade'), r = bladeReach(p), half = Math.min(2.2, 1.05 + (p.shots - 1) * 0.22 + (WL('blade') >= 2 ? 0.25 : 0));
     const dir = step === 0 ? 1 : -1, skip = new Set();
     for (const da of p.back ? [a, a + Math.PI] : [a]) {
-      const hits = hitArc(p.x, p.y, r, da, half, p.dmg * 1.7 * DM('blade'), { kb: 170, tag: 'blade', hitstop: 0.025, burn: mo === 'blade_flame' ? 2.5 : 0 }, skip);
+      const hits = hitArc(p.x, p.y, r, da, half, p.dmg * 1.5 * DM('blade'), { kb: 170, tag: 'blade', hitstop: 0.025, wburn: mo === 'blade_flame' ? 2.5 : 0 }, skip);
       for (const e of hits) bladeHitFx(e, angTo(p, e), pl, false);
       bladeParry(p, cutWhere(b => inArc(b, p.x, p.y, r, da, half), pl.spark), da, pl);
       swingFx({ a: da, half: half * 1.05, r: r * 0.92, w: 26, dir, col: pl.col, col2: pl.col2, dur: 0.2 });
@@ -200,7 +213,7 @@
     const pl = bPal(), mo = MO('blade'), len = bladeReach(p) * 1.6, w = 28 * sizeK(p), skip = new Set();
     for (const da of p.back ? [a, a + Math.PI] : [a]) {
       const x2 = p.x + Math.cos(da) * len, y2 = p.y + Math.sin(da) * len;
-      const hits = hitLine(p.x, p.y, x2, y2, w, p.dmg * 2.8 * DM('blade'), { kb: 340, kbA: da, stun: 0.25, hitstop: 0.05, critAdd: 0.1, tag: 'blade', burn: mo === 'blade_flame' ? 3 : 0 }, skip);
+      const hits = hitLine(p.x, p.y, x2, y2, w, p.dmg * 2.6 * DM('blade'), { kb: 340, kbA: da, stun: 0.25, hitstop: 0.05, critAdd: 0.1, tag: 'blade', wburn: mo === 'blade_flame' ? 3 : 0 }, skip);
       for (const e of hits) bladeHitFx(e, da, pl, true);
       bladeParry(p, cutWhere(b => segDist(b.x, b.y, p.x, p.y, da, len) < w / 2 + b.r), da, pl);
       // fénydárda-nyom
@@ -212,7 +225,7 @@
         glw() { const pp = G.p; gctx.globalAlpha = 0.8 * (1 - t / dur); gctx.strokeStyle = pl.col; gctx.lineWidth = w; gctx.beginPath(); gctx.moveTo(pp.x, pp.y); gctx.lineTo(pp.x + Math.cos(da) * len, pp.y + Math.sin(da) * len); gctx.stroke(); } });
       starFx(x2, y2, 22, pl.col2, 0.25, da);
       if (mo === 'blade_flame') {
-        hitCircle(x2, y2, 50, p.dmg * 1.2 * DM('blade'), { burn: 3, kb: 200, tag: 'blade' });
+        hitCircle(x2, y2, 50, p.dmg * 1.0 * DM('blade'), { wburn: 3, kb: 200, tag: 'blade' });
         ringFx(x2, y2, 8, 60, '#ff7a2a', 0.35, 10); if (partOK()) { part(x2, y2, '#ff7a2a', 18, 260, 0.5, 3.5); part(x2, y2, '#ffe08a', 10, 160, 0.4, 3); }
         flameTrail([{ x: clamp(x2, L + 10, R - 10), y: clamp(y2, T + 10, B - 10) }, { x: lerp(p.x, x2, 0.6), y: lerp(p.y, y2, 0.6) }]);
       }
@@ -224,7 +237,7 @@
   }
   function bladeWhirl(p, ws, a) {
     const pl = bPal(), r = bladeReach(p) * 1.08;
-    const hits = hitCircle(p.x, p.y, r, p.dmg * 2.4 * DM('blade'), { kb: 300, tag: 'blade', hitstop: 0.04, burn: MO('blade') === 'blade_flame' ? 3 : 0 });
+    const hits = hitCircle(p.x, p.y, r, p.dmg * 3.0 * DM('blade'), { kb: 300, tag: 'blade', hitstop: 0.04, wburn: MO('blade') === 'blade_flame' ? 3 : 0 });
     for (const e of hits) bladeHitFx(e, angTo(p, e), pl, true);
     bladeParry(p, cutWhere(b => Math.hypot(b.x - p.x, b.y - p.y) < r + b.r), a, pl);
     swingFx({ a: a + Math.PI, half: Math.PI, r: r * 0.92, w: 30, dir: 1, col: pl.col, col2: pl.col2, dur: 0.3 });
@@ -338,8 +351,8 @@
     if (WL('scythe') < 4) slowMove(p, dt, 0.6);
     ws.tick = (ws.tick || 0) - dt;
     if (ws.tick <= 0) {
-      ws.tick = 0.14; sfx('wSpin');
-      const hits = hitCircle(p.x, p.y, r, p.dmg * 0.75 * DM('scythe'), { kb: death ? 0 : 120, tag: 'scythe' });
+      ws.tick = 0.14; ws.tickN = (ws.tickN || 0) + 1; sfx('wSpin');
+      const hits = hitCircle(p.x, p.y, r, p.dmg * 0.75 * DM('scythe'), { kb: death ? 0 : 120, tag: 'scythe', silentNum: ws.tickN % 3 !== 0 });
       for (const e of hits) if (partOK(1000)) vfx.spark(e.x, e.y, angTo(p, e) + Math.PI / 2, 0.4, pl.soul, 3, 260, 0.25, 2);
       cutWhere(b => Math.hypot(b.x - p.x, b.y - p.y) < r + b.r, pl.soul);
     }
@@ -349,8 +362,14 @@
     if (ws.spinT > maxT) scyEndSpin(p, ws);
   }
   // Holdsarló: bumeráng-kasza
+  // a hajítás távolsága: a célzás irányába eső legközelebbi démonig (érintésnél is működik), különben a teljes hatótáv
+  function moonDist(p, a) {
+    const D = 260 * rangeK(p) * (WL('scythe') >= 2 ? 1.15 : 1); let best = D;
+    eachEnemy(e => { const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < D + 40 && arcDiff(Math.atan2(e.y - p.y, e.x - p.x), a) < 0.45) best = Math.min(best, d + 12); });
+    return clamp(best, 90, D);
+  }
   function moonThrow(p, ws, a) {
-    const D = 250 * rangeK(p) * (WL('scythe') >= 2 ? 1.15 : 1);
+    const D = moonDist(p, a);
     ws.boom = { x: p.x, y: p.y, a, d: 0, D, st: 'out', t: 0, spin: 0, skip: new Set(), room: G.room, tick: 0, vx: 0, vy: 0 };
     sfx('wMoon');
   }
@@ -365,7 +384,7 @@
       const hits = hitCircle(b.x, b.y, rr, p.dmg * 2.3 * DM('scythe'), { kb: 160, kbA: b.a, tag: 'scythe' }, b.skip);
       for (const e of hits) if (partOK()) vfx.spark(e.x, e.y, b.a, 0.6, pl.soul, 6, 300, 0.3, 2.5);
     } else if (b.st === 'hover') {
-      if (aim !== null) { const tx = clamp(p.x + Math.cos(aim) * b.D, L + 20, R - 20), ty = clamp(p.y + Math.sin(aim) * b.D, T + 20, B - 20); b.x += (tx - b.x) * Math.min(1, dt * 4); b.y += (ty - b.y) * Math.min(1, dt * 4); }
+      if (aim !== null) { b.D += (moonDist(p, aim) - b.D) * Math.min(1, dt * 3); const tx = clamp(p.x + Math.cos(aim) * b.D, L + 20, R - 20), ty = clamp(p.y + Math.sin(aim) * b.D, T + 20, B - 20); b.x += (tx - b.x) * Math.min(1, dt * 4); b.y += (ty - b.y) * Math.min(1, dt * 4); }
       b.tick -= dt;
       if (b.tick <= 0) { b.tick = 0.15; const hits = hitCircle(b.x, b.y, rr * 1.5, p.dmg * 0.7 * DM('scythe'), { kb: 60, tag: 'scythe' }); for (const e of hits) if (partOK(1000)) vfx.spark(e.x, e.y, rand(0, TAU), 0.5, pl.soul, 3, 220, 0.25, 2); if (b.t % 0.45 < 0.15) sfx('wSpin'); }
       if (aim === null || b.t > (WL('scythe') >= 4 ? 3.6 : 2.6)) { b.st = 'back'; b.skip.clear(); b.t = 0; }
@@ -376,7 +395,7 @@
       if (Math.hypot(p.x - b.x, p.y - b.y) < 22 || b.t > 1.5) { ws.boom = null; ws.cd = 0.2; sfx('wSoul'); if (partOK()) part(p.x, p.y, pl.col, 8, 120, 0.3, 2.5); return; }
     }
     cutWhere(q => Math.hypot(q.x - b.x, q.y - b.y) < rr + q.r, pl.soul);
-    if (partOK(1000) && Math.random() < 0.6) G.parts.push({ x: b.x + rand(-8, 8), y: b.y + rand(-8, 8), vx: 0, vy: 0, life: 0.3, max: 0.3, col: pl.col, size: 8, ghost: 1 });
+    if (partOK(1000) && Math.random() < 0.35) { const a = b.spin + rand(0, TAU); G.parts.push({ x: b.x + Math.cos(a) * rr, y: b.y + Math.sin(a) * rr, vx: -Math.sin(a) * 90, vy: Math.cos(a) * 90, life: 0.35, max: 0.35, col: Math.random() < 0.5 ? pl.soul : '#ffffff', size: 2 }); }
   }
   // kasza rajza helyi koordinátában: a nyél +x felé, a penge a végén -y oldalra hajlik
   function drawScytheShape(len, pl, mo, glowK, spectral) {
@@ -398,13 +417,16 @@
     ctx.restore();
   }
   function drawMoonBoom(b, pl) {
-    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.spin);
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i = 2; i >= 1; i--) { ctx.save(); ctx.rotate(-i * 0.45); ctx.globalAlpha = 0.18 * (3 - i); drawScytheShape(26, pl, 'scythe_moon', 0, true); ctx.restore(); }
-    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.translate(-13, 0); drawScytheShape(26, pl, 'scythe_moon', 0.6, false);
+    const rr = 30;
+    // holdsarló-pálya: elmosódott fény-ív a forgás mögött
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.08; ctx.fillStyle = pl.col; ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, TAU); ctx.fill();
+    for (let i = 0; i < 2; i++) { const a0 = b.spin + i * Math.PI; ctx.globalAlpha = 0.5; ctx.fillStyle = pl.col; crescent(ctx, b.x, b.y, rr, a0 - 1.6, a0, 8, 10); ctx.fill(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#ffffff'; crescent(ctx, b.x, b.y, rr, a0 - 0.7, a0, 2.5, 8); ctx.fill(); }
     ctx.restore();
-    // holdfény-korong
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.18; ctx.fillStyle = pl.col; ctx.beginPath(); ctx.arc(b.x, b.y, 30, 0, TAU); ctx.fill(); ctx.restore();
+    // maga a kasza, középen forgatva
+    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.spin); ctx.translate(-12, 8); drawScytheShape(24, pl, 'scythe_moon', 0.35, false); ctx.restore();
+    // holdsarló-jel
+    ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = '#eef4ff'; ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, TAU); ctx.fill(); ctx.fillStyle = pl.dark; ctx.beginPath(); ctx.arc(b.x + 1.6, b.y - 1, 3.4, 0, TAU); ctx.fill(); ctx.restore();
   }
 
   // =================================================================
@@ -501,7 +523,7 @@
     vfx.shake(big ? 16 : 11); G.hitstop = Math.max(G.hitstop, nHit ? (big ? 0.11 : 0.075) : 0.04);
     if (big) { holyPillar(ix, iy, pl.col); vfx.flash(0.25); sfx('holy'); }
     sfx('wSlam');
-    if (lv >= 3) { let t = 0; const skip = new Set(); addFx({ tag: 'after', upd(dt) { t += dt; if (t > 0.38) { hitCircle(ix, iy, rad * 1.35, p.dmg * 2.0 * DM('hammer'), { kb: 300, stun: 0.3, tag: 'hammer' }, skip); ringFx(ix, iy, rad * 0.3, rad * 1.45, pl.storm, 0.4, 10); vfx.shake(5); sfx('wSlam'); return false; } return true; } }); }
+    if (lv >= 3) { let t = 0; const skip = new Set(); addFx({ tag: 'after', upd(dt) { t += dt; if (t > 0.38) { hitCircle(ix, iy, rad * 1.35, p.dmg * 1.5 * DM('hammer'), { kb: 300, stun: 0.3, tag: 'hammer' }, skip); ringFx(ix, iy, rad * 0.3, rad * 1.45, pl.storm, 0.4, 10); vfx.shake(5); sfx('wSlam'); return false; } return true; } }); }
     if (mo === 'hammer_thunder') { boltFx(ix + rand(-20, 20), T - 10, ix, iy, pl.col, 0.3, 4); chainLightning(p, ix, iy, pl, 4 + (p.shots - 1) + (big ? 3 : 0)); sfx('wThunder'); vfx.flash(0.12); }
     if (mo === 'hammer_quake') fissure(p, ix, iy, a, pl);
     ws.post = 0.28; ws.postA = a; ws.ix = ix; ws.iy = iy;
@@ -548,9 +570,9 @@
     if (partOK()) vfx.spark(x, y, a, 0.8, pl.col, 5, 240, 0.3, 2);
   }
   function bowArrow(p, a) {
-    const pl = wPal(), mo = MO('bow'), lv = WL('bow'), n = p.shots + (lv >= 2 ? 1 : 0);
+    const pl = wPal(), mo = MO('bow'), lv = WL('bow'), n = p.shots + (lv >= 4 ? 1 : 0);
     const fire = (aa, side) => pBullet(p.x + Math.cos(aa) * 16, p.y + Math.sin(aa) * 16 - 2, aa, p.shotSpd * 1.3, {
-      r: 4 * sizeK(p), dmg: p.dmg * 1.0 * DM('bow'), life: p.range, pierce: p.pierce + (lv >= 4 ? 1 : 0), col: pl.arrow, ho: { tag: 'bow' },
+      r: 4 * sizeK(p), dmg: p.dmg * (lv >= 4 ? 0.75 : 1) * DM('bow'), life: p.range, pierce: p.pierce + (lv >= 2 ? 1 : 0), col: pl.arrow, ho: { tag: 'bow' },
       onHit: mo === 'bow_dawn' ? (e, b) => { if (!b.split) { b.split = true; dawnSplit(p, b.x, b.y, Math.atan2(b.vy, b.vx), e, 3); } } : null,
       upd: mo === 'bow_stars' ? b => { if (partOK(1000) && Math.random() < 0.35) G.parts.push({ x: b.x + rand(-4, 4), y: b.y + rand(-4, 4), vx: 0, vy: 0, life: 0.35, max: 0.35, col: Math.random() < 0.5 ? '#ffffff' : pl.col, size: 2 }); return true; } : null,
       drw(b) { drawArrow(b, pl, b.cr ? 1.3 : 1); },
@@ -561,7 +583,7 @@
     sfx('wArrow');
   }
   function starRain(p, x, y) {
-    const pl = BOW.bow_stars, n = 12 + (p.shots - 1) * 4 + WL('bow') * 2;
+    const pl = BOW.bow_stars, n = 10 + (p.shots - 1) * 3 + WL('bow');
     x = clamp(x, L + 30, R - 30); y = clamp(y, T + 40, B - 20);
     let t = 0, k = 0; const falls = [];
     vfx.glyph(x, y, pl.col, 84, 1.2, 1.5); sfx('wStars');
@@ -569,7 +591,7 @@
         t += dt;
         while (k < n && t > k * 0.06) { k++; const a = rand(0, TAU), r = Math.sqrt(Math.random()) * 80; falls.push({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, t: 0 }); }
         for (const f of falls) { if (f.done) continue; f.t += dt; if (f.t > 0.18) { f.done = true;
-          hitCircle(f.x, f.y, 26, p.dmg * 1.1 * DM('bow'), { tag: 'bow', kb: 80, kbA: Math.PI / 2 });
+          hitCircle(f.x, f.y, 26, p.dmg * 0.9 * DM('bow'), { tag: 'bow', kb: 80, kbA: Math.PI / 2 });
           if (partOK()) part(f.x, f.y, pl.col, 4, 160, 0.3, 2.5); starFx(f.x, f.y, 14, '#ffffff', 0.2); sfx('wArrow'); } }
         return t < n * 0.06 + 0.4; },
       drw() { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
@@ -582,16 +604,16 @@
   }
   function bowLance(p, a, c) {
     const pl = wPal(), mo = MO('bow'), lv = WL('bow'), k = 0.35 + 0.65 * c;
-    const w = (16 + 12 * c) * sizeK(p) + (lv >= 2 ? 6 : 0);
+    const w = (18 + 10 * c) * sizeK(p) + (lv >= 2 ? 8 : 0), vw = (7 + 7 * c) * sizeK(p) + (lv >= 2 ? 3 : 0);
     const shots = lv >= 4 ? [[a, 1], [a - 0.13, 0.5], [a + 0.13, 0.5]] : [[a, 1]];
     if (p.back) shots.push([a + Math.PI, 0.6]);
     let tgt = null, tgtHp = -1, endX = 0, endY = 0;
     for (const [da, m] of shots) {
       const x1 = p.x + Math.cos(da) * 14, y1 = p.y + Math.sin(da) * 14, len = rayLen(x1, y1, da), x2 = x1 + Math.cos(da) * len, y2 = y1 + Math.sin(da) * len;
-      const hits = hitLine(x1, y1, x2, y2, w * (m < 1 ? 0.7 : 1), p.dmg * 5.0 * DM('bow') * k * m * (mo === 'bow_stars' ? 0.75 : 1), { kb: 160 * c, kbA: da, tag: 'bow', hitstop: c > 0.9 ? 0.04 : 0, critAdd: 0.1 * c });
+      const hits = hitLine(x1, y1, x2, y2, w * (m < 1 ? 0.7 : 1), p.dmg * 4.2 * DM('bow') * k * m * (mo === 'bow_stars' ? 0.7 : 1), { kb: 160 * c, kbA: da, tag: 'bow', hitstop: c > 0.9 ? 0.04 : 0, critAdd: 0.1 * c });
       for (const e of hits) { if (partOK()) vfx.spark(e.x, e.y, da, 0.5, pl.col, 6, 380, 0.3, 2.5); if (m === 1 && e.hp > tgtHp) { tgt = e; tgtHp = e.hp; } if (mo === 'bow_dawn') dawnSplit(p, e.x, e.y, da, e, 4); }
       if (lv >= 3) cutWhere(b => segDist(b.x, b.y, x1, y1, da, len) < w / 2 + b.r, pl.col);
-      beamFx(x1, y1, x2, y2, w * (m < 1 ? 0.6 : 1), pl.col, 0.45);
+      beamFx(x1, y1, x2, y2, vw * (m < 1 ? 0.6 : 1), pl.col, 0.45);
       if (m === 1) { endX = x2; endY = y2; }
       if (partOK()) for (let i = 0; i < 8; i++) { const r = rand(0, len); G.parts.push({ x: x1 + Math.cos(da) * r, y: y1 + Math.sin(da) * r, vx: rand(-40, 40), vy: rand(-40, 40), life: 0.5, max: 0.5, col: i % 2 ? '#ffffff' : pl.col, size: 2.5 }); }
       if (partOK() && Math.random() < 0.5) vfx.feathers(x1 + Math.cos(da) * 30, y1 + Math.sin(da) * 30, 2, mo === 'bow_dawn' ? '#ffd8c8' : '#fff8e8');
@@ -658,11 +680,11 @@
     const bx = p.x + Math.cos(a) * 26, by = p.y + Math.sin(a) * 26 - 3;
     let half = (0.42 + (lv >= 2 ? 0.15 : 0) + (p.shots - 1) * 0.12) * (fan ? 1.8 : 1);
     let maxR = 290 * rangeK(p) * (lv >= 2 ? 1.15 : 1) * (fan ? 1.25 : 1);
-    const dmg = p.dmg * (fan ? 2.6 : 1.6) * DM('horn');
+    const dmg = p.dmg * (fan ? 2.5 : 1.5) * DM('horn');
     const base = { x: bx, y: by, a, half: Math.min(half, Math.PI), maxR, spd: 470 * spdK(p) * (fan ? 1.1 : 1), dmg, kb: fan ? 640 : 380, stun: fan ? 0.45 : 0, fan, pl, wall: mo === 'horn_walls' ? Math.min(130, maxR * 0.45) : 0 };
     if (last) Object.assign(base, { x: p.x, y: p.y, half: Math.PI, maxR: 800, spd: 620 * spdK(p), stun: 0.6 });
     soundWave(base);
-    if (lv >= 4) { soundWave(Object.assign({}, base, { delay: 0.1, dmg: dmg * 0.35, kb: base.kb * 0.4, stun: 0, echo: true, wall: 0 })); soundWave(Object.assign({}, base, { delay: 0.2, dmg: dmg * 0.35, kb: base.kb * 0.4, stun: 0, echo: true, wall: 0 })); }
+    if (lv >= 4) { soundWave(Object.assign({}, base, { delay: 0.1, dmg: dmg * 0.25, kb: base.kb * 0.4, stun: 0, echo: true, wall: 0 })); soundWave(Object.assign({}, base, { delay: 0.2, dmg: dmg * 0.25, kb: base.kb * 0.4, stun: 0, echo: true, wall: 0 })); }
     if (fan && lv >= 3 && !last) soundWave({ x: p.x, y: p.y, a: 0, half: Math.PI, maxR: 150, spd: 520, dmg: dmg * 0.6, kb: 520, stun: 0.6, fan: true, pl });
     if (p.back) soundWave(Object.assign({}, base, { x: p.x - Math.cos(a) * 20, y: p.y - Math.sin(a) * 20, a: a + Math.PI, dmg: dmg * 0.7, wall: 0, fan: false, echo: true }));
     ringFx(bx, by, 4, fan ? 40 : 24, pl.col2, 0.25, fan ? 6 : 4);
@@ -677,7 +699,7 @@
   //  6. AZ IGE KÖNYVE
   // =================================================================
   const TOME = {
-    base: { col: '#c9a0ff', col2: '#ffffff', cover: '#4a2a7a', page: '#f6efff', ink: '#7a4ad0' },
+    base: { col: '#c9a0ff', col2: '#ffffff', cover: '#4a2a7a', page: '#e9dcff', ink: '#6a3ac0' },
     tome_apoc: { col: '#ff4a5a', col2: '#ffe08a', cover: '#5a1218', page: '#ffe8d8', ink: '#c0202a' },
     tome_cherub: { col: '#ffd0e8', col2: '#fff6c8', cover: '#e8c25a', page: '#fffaf0', ink: '#d9a63a' },
   };
@@ -685,20 +707,21 @@
   const RUNES = ['ᚠ', 'ᚢ', 'ᚦ', 'ᚨ', 'ᚱ', 'ᚲ', 'ᛉ', 'ᛟ', 'ᛞ', 'ᛗ', 'Ω', 'Α', '✠', '☩'];
   // pecsét a démonon: rövid késleltetés után felrobban
   function stampGlyph(p, e, dmg, gen, chain) {
-    const pl = tPal(), lv = WL('tome'), rad = 42 * (lv >= 3 ? 1.5 : 1) * Math.sqrt(sizeK(p)) * (gen ? 0.85 : 1), rune = choice(RUNES);
-    if (fxN('glyph') >= 24) { hitCircle(e.x, e.y, rad, dmg, { tag: 'tome', slow: lv >= 3 ? 1.2 : 0 }); return; }
+    const pl = tPal(), lv = WL('tome'), rad = gen ? 26 * Math.sqrt(sizeK(p)) : 42 * (lv >= 3 ? 1.5 : 1) * Math.sqrt(sizeK(p)), rune = choice(RUNES);
+    if (fxN('glyph') >= (gen ? 10 : 16)) { hitCircle(e.x, e.y, rad, dmg, { tag: 'tome', slow: lv >= 3 ? 1.2 : 0 }); return; }
     let t = 0, x = e.x, y = e.y; const dur = 0.5;
-    vfx.glyph(x, y, pl.col, rad * 0.75, dur + 0.15, 4);
+    if (gen < 2) vfx.glyph(x, y, pl.col, rad * 0.75, dur + 0.15, 4);
     addFx({ tag: 'glyph', upd(dt) {
         t += dt; if (!e.dead) { x = e.x; y = e.y; }
         if (t >= dur) {
           const hits = hitCircle(x, y, rad, dmg, { tag: 'tome', slow: lv >= 3 ? 1.2 : 0, kb: 120 });
-          ringFx(x, y, 6, rad * 1.1, pl.col, 0.35, 10); starFx(x, y, rad * 0.7, pl.col2, 0.25, rand(0, 1));
+          ringFx(x, y, 6, rad * 1.1, pl.col, 0.35, 10); if (!gen) starFx(x, y, rad * 0.55, pl.col, 0.25, rand(0, 1));
           if (partOK()) { part(x, y, pl.col, 12, 220, 0.45, 3); part(x, y, pl.col2, 5, 140, 0.35, 2.5); }
           sfx('wGlyph'); vfx.shake(gen ? 1.5 : 2.5);
           if (MO('tome') === 'tome_apoc' && gen < 3) {
             const set = chain || new Set(); set.add(e); let k = 0;
-            eachEnemy(o => { if (k >= 4 || set.has(o) || Math.hypot(o.x - x, o.y - y) > rad * 2.4 + o.r) return; set.add(o); k++; boltFx(x, y, o.x, o.y, pl.col, 0.2, 1.8); stampGlyph(p, o, dmg * 0.75, gen + 1, set); });
+            const reach = 42 * (lv >= 3 ? 1.5 : 1) * 2.2;
+            eachEnemy(o => { if (k >= 4 || set.has(o) || Math.hypot(o.x - x, o.y - y) > reach + o.r) return; set.add(o); k++; if (gen < 2) boltFx(x, y, o.x, o.y, pl.col, 0.2, 1.8); stampGlyph(p, o, dmg * 0.75, gen + 1, set); });
           }
           return false;
         }
@@ -707,7 +730,7 @@
         ctx.globalAlpha = 0.35 + k * 0.5; ctx.strokeStyle = pl.col; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 13, 0, TAU); ctx.stroke();
         ctx.rotate(-t * 3); ctx.strokeStyle = pl.col2; ctx.lineWidth = 1; ctx.beginPath(); for (let i = 0; i < 3; i++) { const a = i / 3 * TAU - Math.PI / 2; ctx.lineTo(Math.cos(a) * 13, Math.sin(a) * 13); } ctx.closePath(); ctx.stroke(); ctx.rotate(t * 3);
         ctx.globalAlpha = 0.7 + k * 0.3; ctx.fillStyle = pl.col2; ctx.font = `bold 14px ${SERIF}`; ctx.textAlign = 'center'; ctx.fillText(rune, 0, 5); ctx.restore(); },
-      glw() { glowDot(x, y, 16 + t * 30, pl.col, 0.35 + t); } });
+      glw() { glowDot(x, y, 14 + t * 20, pl.col, 0.25 + t * 0.6); } });
   }
   function tomePage(p, a, i, n) {
     const pl = tPal(), lv = WL('tome'), side = i % 2 ? 1 : -1, rune = choice(RUNES);
@@ -777,8 +800,8 @@
   }
   function drawCherub(c, pl) {
     const s = c.born, fl = Math.sin(gt * 18 + c.x * 0.1) * 0.5;
-    ctx.save(); ctx.translate(c.x, c.y); ctx.scale(s, s);
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.save(); ctx.translate(c.x, c.y); ctx.scale(s * 1.3, s * 1.3);
+    ctx.fillStyle = '#ffe6f2';
     for (const sd of [-1, 1]) { ctx.save(); ctx.scale(sd, 1); ctx.rotate(-0.3 - fl * 0.6); ctx.beginPath(); ctx.ellipse(8, -2, 7, 3.2, -0.3, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.ellipse(6, 2, 5, 2.4, 0.1, 0, TAU); ctx.fill(); ctx.restore(); }
     ctx.fillStyle = '#ffe2c8'; ctx.beginPath(); ctx.arc(0, 0, 4.6, 0, TAU); ctx.fill();
     ctx.fillStyle = '#f2c75a'; ctx.beginPath(); ctx.arc(0, -1.6, 4.4, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
@@ -820,7 +843,7 @@
         const step = ws.combo || 0, lv4 = WL('blade') >= 4;
         if (step < 2) { bladeSlash(p, ws, aim, step); ws.cd = 0.3; }
         else if (step === 2) { bladeThrust(p, ws, aim); ws.cd = lv4 ? 0.36 : 0.5; }
-        else { bladeWhirl(p, ws, aim); ws.cd = 0.55; }
+        else { bladeWhirl(p, ws, aim); ws.cd = 0.45; }
         ws.combo = step >= (lv4 ? 3 : 2) ? 0 : step + 1; ws.comboT = 0.8;
       },
       drawHeld(p, ws) {
@@ -832,9 +855,9 @@
       },
       glow(p, ws) { const pl = bPal(), ps = bladePose(p, ws); for (let i = 1; i <= 3; i++) glowDot(p.x + Math.cos(ps.ang) * (8 + i * 9 + ps.ext), p.y + 2 + Math.sin(ps.ang) * (8 + i * 9 + ps.ext), 7, pl.col, ps.gk > 0 ? 0.7 : 0.4); },
       icon(x, y, s) {
-        ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.rotate(-Math.PI / 4);
-        ctx.fillStyle = 'rgba(255,248,232,0.85)'; for (const sd of [-1, 1]) { ctx.beginPath(); ctx.ellipse(-8, sd * 9, 9, 3.5, sd * 0.5, 0, TAU); ctx.fill(); }
-        ctx.translate(-12, 0); drawSword(34, BLADE.base, null, 0); ctx.restore();
+        ctx.save(); ctx.translate(x, y); ctx.scale(s * 1.25, s * 1.25); ctx.rotate(-Math.PI / 4); ctx.translate(-11, 0);
+        ctx.fillStyle = 'rgba(255,248,232,0.85)'; for (const sd of [-1, 1]) { ctx.beginPath(); ctx.ellipse(-3, sd * 10, 8, 3.2, sd * 0.6, 0, TAU); ctx.fill(); }
+        drawSword(34, BLADE.base, null, 0); ctx.restore();
       },
     },
     // ---------------------------------------------------------------
@@ -895,8 +918,8 @@
       },
       glow(p, ws) {
         const pl = sPal();
-        if (ws.boom) { glowDot(ws.boom.x, ws.boom.y, 30, pl.col, 0.7); return; }
-        if (ws.spin) { glowDot(p.x, p.y, scyReach(p) * 0.85, pl.col, 0.3); return; }
+        if (ws.boom) { glowDot(ws.boom.x, ws.boom.y, 22, pl.col, 0.4); return; }
+        if (ws.spin) { glowDot(p.x, p.y, scyReach(p) * 0.8, pl.col, 0.18); return; }
         glowDot(p.x + Math.cos(p.face - 2.2) * 28, p.y + Math.sin(p.face - 2.2) * 28, 12 + ws.chg * 10, pl.col, 0.35 + ws.chg * 0.4);
       },
       icon(x, y, s) {
@@ -947,7 +970,7 @@
         else glowDot(p.x + Math.cos(p.face - 1.1) * 32, p.y + 4 + Math.sin(p.face - 1.1) * 32, 9, pl.col, 0.4);
       },
       icon(x, y, s) {
-        ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.rotate(-Math.PI / 4 - Math.PI / 2 + Math.PI); ctx.translate(-18, 0);
+        ctx.save(); ctx.translate(x, y); ctx.scale(s * 1.15, s * 1.15); ctx.rotate(-Math.PI / 4); ctx.translate(-13, 0);
         drawHammerShape(HAM.base, null, 0); ctx.restore();
       },
     },
@@ -955,7 +978,7 @@
     bow: {
       n: 'Szeráf Íja', short: 'Íj', kind: 'ranged', col: '#fff1c4',
       d: 'Koppintásra gyors, tollas fénynyilak. Tartsd nyomva a húr kifeszítéséhez: elengedve mindenen áthatoló fénylándzsa csap ki.',
-      lv: ['+20% sebzés', '+1 nyílvessző, szélesebb fénylándzsa', 'Gyorsabb feszítés, a lándzsa elégeti az útjába eső lövedékeket', 'A fénylándzsa hármas legyezőben csap ki, a nyilak +1 démonon hatolnak át'],
+      lv: ['+20% sebzés', 'A nyilak +1 démonon hatolnak át, szélesebb fénylándzsa', 'Gyorsabb feszítés, a lándzsa elégeti az útjába eső lövedékeket', 'A fénylándzsa hármas legyezőben csap ki, és +1 nyílvessző lövésenként'],
       morphs: [
         { id: 'bow_stars', n: 'Csillageső', d: 'A kifeszített lövés célpontjára csillagnyilak zápora hullik az égből.', i: '✧' },
         { id: 'bow_dawn', n: 'Hajnal Íja', d: 'A nyilak találatkor hajnalszilánkokra hasadnak; a lándzsa minden átdöfött démonból szilánkokat szór.', i: '☀' },
@@ -1010,7 +1033,7 @@
           ctx.restore();
         }
       },
-      glow(p, ws) { const pl = wPal(), a = ws.held ? ws.aim : p.face, c = ws.chg || 0; glowDot(p.x + Math.cos(a) * (18 + c * 14), p.y + Math.sin(a) * (18 + c * 14), 8 + c * 14, pl.col, 0.4 + c * 0.5); },
+      glow(p, ws) { const pl = wPal(), a = ws.held ? ws.aim : p.face, c = ws.chg || 0; glowDot(p.x + Math.cos(a) * (18 + c * 18), p.y + Math.sin(a) * (18 + c * 18), 6 + c * 7, pl.col, 0.3 + c * 0.35); },
       icon(x, y, s) {
         ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.rotate(-Math.PI / 4);
         ctx.strokeStyle = '#f2d27a'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-4, -17); ctx.quadraticCurveTo(12, -9, 6, 0); ctx.quadraticCurveTo(12, 9, -4, 17); ctx.stroke();
@@ -1071,7 +1094,7 @@
     tome: {
       n: 'Az Ige Könyve', short: 'Ige', kind: 'ranged', col: '#c9a0ff',
       d: 'Izzó szentírás-lapokat bocsát ki, amelyek kirebbennek, köröznek, majd a démonokra vetik magukat, és felrobbanó rúnapecsétet nyomnak rájuk.',
-      lv: ['+20% sebzés', '+1 lap minden lapozással', 'Nagyobb pecsétek, amelyek le is lassítanak', 'A lapok egy találat után új célpontot keresnek'],
+      lv: ['+20% sebzés', 'Minden második lapozás +1 lapot bocsát ki', 'Nagyobb pecsétek, amelyek le is lassítanak', 'A lapok egy találat után új célpontot keresnek'],
       morphs: [
         { id: 'tome_apoc', n: 'Apokalipszis Könyve', d: 'A felrobbanó pecsétek a közeli démonokra is átíródnak – láncreakció, egyre tovább terjedő ítélet.', i: '✠' },
         { id: 'tome_cherub', n: 'Kerubok Kórusa', d: 'A lapokból körülötted keringő kerubok lesznek: fényvesszőket lőnek és elnyelik a feléd szálló lövedékeket.', i: '♡' },
@@ -1081,7 +1104,8 @@
         if (ws.flip > 0) ws.flip -= dt * 4;
         if (MO('tome') === 'tome_cherub') { cherubUpdate(p, ws, dt, aim); return; }
         if (aim === null || ws.cd > 0) return;
-        const n = 1 + (WL('tome') >= 2 ? 1 : 0) + (p.shots - 1);
+        ws.cnt = (ws.cnt || 0) + 1;
+        const n = 1 + (WL('tome') >= 2 && ws.cnt % 2 === 0 ? 1 : 0) + (p.shots - 1);
         for (let i = 0; i < n; i++) tomePage(p, aim, i, n);
         if (p.back) tomePage(p, aim + Math.PI, 0, 1);
         ws.flip = 1; ws.cd = 0.42; sfx('wPage');
@@ -1090,7 +1114,7 @@
         const pl = tPal(), mo = MO('tome'), a = p.face, held = ws.flip > 0 || (mo === 'tome_cherub' && ws.sum !== undefined && ws.sum > -0.3);
         // kerubok
         if (mo === 'tome_cherub' && ws.cher) for (const c of ws.cher) if (c.x !== undefined) drawCherub(c, pl);
-        const bx = p.x + Math.cos(a) * 15, by = p.y + 4 + Math.sin(a) * 9;
+        const bx = p.x + Math.cos(a) * 18, by = p.y + 7 + Math.sin(a) * 10;
         // lebegő rúnák a könyv fölött
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = pl.col; ctx.font = `bold 9px ${SERIF}`; ctx.textAlign = 'center';
         for (let i = 0; i < 3; i++) { const k = (gt * 0.8 + i / 3) % 1; ctx.globalAlpha = Math.sin(k * Math.PI) * (held ? 0.9 : 0.5); ctx.fillText(RUNES[(i * 5 + Math.floor(gt * 0.8 + i / 3)) % RUNES.length], bx + Math.sin(gt * 2 + i * 2) * 8, by - 8 - k * 16); }
@@ -1099,7 +1123,7 @@
         drawBook(pl, mo, Math.max(0, ws.flip || 0), 1);
         ctx.restore();
       },
-      glow(p, ws) { const pl = tPal(), a = p.face; glowDot(p.x + Math.cos(a) * 15, p.y + 2 + Math.sin(a) * 9, 12 + (ws.flip > 0 ? 8 : 0), pl.col, 0.45); if (ws.cher) for (const c of ws.cher) if (c.x !== undefined) glowDot(c.x, c.y, 9, '#fff6c8', 0.6); },
+      glow(p, ws) { const pl = tPal(), a = p.face; glowDot(p.x + Math.cos(a) * 18, p.y - 4 + Math.sin(a) * 10, 8 + (ws.flip > 0 ? 6 : 0), pl.col, 0.3); if (ws.cher) for (const c of ws.cher) if (c.x !== undefined) glowDot(c.x, c.y - 6, 6, '#ffd75e', 0.35); },
       icon(x, y, s) {
         ctx.save(); ctx.translate(x, y); ctx.scale(s * 1.15, s * 1.15);
         ctx.fillStyle = '#4a2a7a'; ctx.beginPath(); ctx.moveTo(-15, -9); ctx.lineTo(0, -6); ctx.lineTo(15, -9); ctx.lineTo(15, 10); ctx.lineTo(0, 13); ctx.lineTo(-15, 10); ctx.closePath(); ctx.fill();
