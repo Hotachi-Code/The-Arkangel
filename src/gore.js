@@ -105,7 +105,6 @@ on('hit', (e, dmg, o) => {
   const a = angTo(G.p, e), n = Math.min(14, 3 + Math.round(dmg / 6)), big = dmg > e.maxHp * 0.25;
   bloodSpray(e.x, e.y, a, n, big ? 340 : 240, big ? 0.9 : 0.6, bloodOf(e), e.boss ? 1.6 : 1);
   e.hurtT = 0.16; e.hurtA = a;
-  if (big && !e.boss && e.act && e.act.ph === 'wind') { e.act = null; e.atk = null; e.stun = Math.max(e.stun || 0, 0.35); floatText(e.x, e.y - e.r - 18, 'MEGTÖRVE', '#e8c8a0', 0.7, 12); }
   if (Math.random() < 0.3) splat(e.x + rand(-6, 6), e.y + rand(-4, 6), rand(4, 9), bloodOf(e), 'splat');
 });
 on('kill', e => {

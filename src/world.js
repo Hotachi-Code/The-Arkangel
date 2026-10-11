@@ -36,6 +36,13 @@ const BIOME = {
   5: { g: [40, 64, 50], g2: [48, 78, 56], rt: [86, 124, 104], rs: [34, 56, 44], liq: [36, 96, 76], slow: null },
   6: { g: [70, 76, 98], g2: [168, 176, 198], rt: [160, 168, 196], rs: [76, 82, 110], liq: [120, 150, 196], slow: null },
 };
+// sötétítés és vérbe fordítás: minden táj színe besötétül és vörös felé húz
+for (const k in BIOME) {
+  const B = BIOME[k], dk = k === '7' ? 0.62 : 0.5;
+  for (const f of ['g', 'g2', 'rt', 'rs', 'slow']) if (B[f]) B[f] = [B[f][0] * dk + 10, B[f][1] * dk * 0.78, B[f][2] * dk * 0.74];
+  if (B.liq && k !== '4') B.liq = [B.liq[0] * 0.45 + 30, B.liq[1] * 0.3, B.liq[2] * 0.3];
+}
+BIOME[0].liq = [92, 8, 12]; BIOME[7].liq = [52, 10, 14];
 const Hypot = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const rgbS = (c, k = 1) => `rgb(${Math.round(c[0] * k)},${Math.round(c[1] * k)},${Math.round(c[2] * k)})`;
 const mixC = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
@@ -621,6 +628,12 @@ function paintChunk(cx, cy) {
     const px = tx * TS + hash2(tx, ty, 22) * 30 + 5, py = ty * TS + hash2(tx, ty, 23) * 30 + 5, v = hash2(tx, ty, 24);
     groundDetail(g, reg, px, py, v, h);
   }
+  // 3b. gore: alvadt vér, csontok, koponyák, belsőségek, vércsíkok
+  for (let ty = y0; ty < y0 + CHUNK; ty++) for (let tx = x0; tx < x0 + CHUNK; tx++) {
+    if (K(tx, ty) !== K_GROUND && K(tx, ty) !== K_SLOW) continue;
+    const h = hash2(tx, ty, 71); if (h > (Wd.RG[ty * MW + tx] === 7 ? 0.08 : 0.26)) continue;
+    goreDetail(g, tx * TS + 6 + hash2(tx, ty, 72) * 28, ty * TS + 6 + hash2(tx, ty, 73) * 28, hash2(tx, ty, 74), h, tx * 131 + ty);
+  }
   // 4. Purgatórium: mozaik a középpontban
   const C = Wd.C, ccx = (C.tx + 0.5) * TS, ccy = (C.ty + 0.5) * TS;
   if (Math.abs(ccx - (x0 + CHUNK / 2) * TS) < CHUNK * TS && Math.abs(ccy - (y0 + CHUNK / 2) * TS) < CHUNK * TS) {
@@ -648,17 +661,39 @@ function paintChunk(cx, cy) {
   }
   return c;
 }
+function goreDetail(g, x, y, v, h, seed) {
+  if (h < 0.09) { // alvadt vértócsa
+    const r = 8 + v * 16; g.fillStyle = 'rgba(58,4,6,0.72)'; g.beginPath();
+    for (let k = 0; k < 9; k++) { const a = k / 9 * TAU, rr = r * (0.65 + hash2(seed, k, 81) * 0.55); k ? g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.6) : g.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.6); }
+    g.closePath(); g.fill(); g.fillStyle = 'rgba(110,10,12,0.4)'; g.beginPath(); g.ellipse(x - r * 0.2, y - r * 0.1, r * 0.4, r * 0.2, 0, 0, TAU); g.fill();
+    for (let k = 0; k < 4; k++) { g.fillStyle = 'rgba(70,6,8,0.7)'; g.beginPath(); g.arc(x + (hash2(seed, k, 82) - 0.5) * r * 3, y + (hash2(seed, k, 83) - 0.5) * r * 1.6, 1 + hash2(seed, k, 84) * 2, 0, TAU); g.fill(); }
+  } else if (h < 0.14) { // vércsík (húzásnyom)
+    g.strokeStyle = 'rgba(60,4,6,0.55)'; g.lineWidth = 3 + v * 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(x - 14, y - 4); g.quadraticCurveTo(x, y + 6 * (v - 0.5), x + 16, y + 3); g.stroke();
+  } else if (h < 0.18) { // koponya
+    g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(x, y + 4, 7, 3, 0, 0, TAU); g.fill();
+    g.fillStyle = '#b8ac90'; g.beginPath(); g.arc(x, y, 5.5, 0, TAU); g.fill(); g.fillRect(x - 3.5, y + 2, 7, 4);
+    g.fillStyle = '#1a0c0a'; g.beginPath(); g.arc(x - 2, y, 1.6, 0, TAU); g.arc(x + 2, y, 1.6, 0, TAU); g.fill(); g.fillRect(x - 0.5, y + 2, 1, 2);
+    g.fillStyle = 'rgba(90,8,10,0.6)'; g.beginPath(); g.arc(x + 3, y - 3, 2.4, 0, TAU); g.fill();
+  } else if (h < 0.22) { // szétszórt csontok
+    g.strokeStyle = '#a89c80'; g.lineWidth = 2.2; g.lineCap = 'round';
+    for (let k = 0; k < 3; k++) { const a = hash2(seed, k, 85) * 3, cx = x + (hash2(seed, k, 86) - 0.5) * 18, cy = y + (hash2(seed, k, 87) - 0.5) * 10; g.beginPath(); g.moveTo(cx - Math.cos(a) * 6, cy - Math.sin(a) * 3); g.lineTo(cx + Math.cos(a) * 6, cy + Math.sin(a) * 3); g.stroke(); }
+  } else { // húscafat, belsőség
+    g.fillStyle = 'rgba(50,4,6,0.6)'; g.beginPath(); g.ellipse(x, y + 2, 8, 4, 0, 0, TAU); g.fill();
+    g.fillStyle = '#6a1a18'; g.beginPath(); g.ellipse(x, y, 5 + v * 3, 3, v * 3, 0, TAU); g.fill();
+    g.fillStyle = '#8a3a30'; g.beginPath(); g.ellipse(x - 1, y - 1, 2.5, 1.4, v * 3, 0, TAU); g.fill();
+  }
+}
 function groundDetail(g, reg, x, y, v, h) {
-  if (h < 0.18) { g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse(x, y + 2, 4, 2, 0, 0, TAU); g.fill(); g.fillStyle = 'rgba(200,200,210,0.25)'; g.beginPath(); g.ellipse(x, y, 3.5, 2.4, 0, 0, TAU); g.fill(); return; }
+  if (h < 0.18) { g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse(x, y + 2, 4, 2, 0, 0, TAU); g.fill(); g.fillStyle = 'rgba(120,110,105,0.25)'; g.beginPath(); g.ellipse(x, y, 3.5, 2.4, 0, 0, TAU); g.fill(); return; }
   if (h < 0.3) { g.strokeStyle = 'rgba(0,0,0,0.22)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x - 8, y); g.lineTo(x - 2, y + 3); g.lineTo(x + 6, y - 1); g.stroke(); return; }
   switch (reg) {
     case 7: case 3: g.strokeStyle = reg === 7 ? 'rgba(130,150,110,0.55)' : 'rgba(90,120,100,0.55)'; g.lineWidth = 1.2; for (let k = -1; k <= 1; k++) { g.beginPath(); g.moveTo(x + k * 3, y + 3); g.lineTo(x + k * 4 + (v - 0.5) * 4, y - 5); g.stroke(); } break;
-    case 0: g.fillStyle = v < 0.5 ? 'rgba(230,110,150,0.6)' : 'rgba(255,170,200,0.45)'; g.beginPath(); g.ellipse(x, y, 3, 1.6, v * 3, 0, TAU); g.fill(); break;
+    case 0: g.fillStyle = v < 0.5 ? 'rgba(120,30,40,0.6)' : 'rgba(150,40,50,0.45)'; g.beginPath(); g.ellipse(x, y, 3, 1.6, v * 3, 0, TAU); g.fill(); break;
     case 1: g.strokeStyle = 'rgba(220,210,180,0.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 5, y); g.lineTo(x + 5, y + (v - 0.5) * 4); g.stroke(); break;
-    case 2: g.fillStyle = 'rgba(240,196,70,0.7)'; g.beginPath(); g.ellipse(x, y, 3, 2, 0, 0, TAU); g.fill(); g.fillStyle = 'rgba(120,80,20,0.6)'; g.fillRect(x - 1, y - 0.5, 2, 1); break;
+    case 2: g.fillStyle = 'rgba(150,110,40,0.55)'; g.beginPath(); g.ellipse(x, y, 3, 2, 0, 0, TAU); g.fill(); g.fillStyle = 'rgba(120,80,20,0.6)'; g.fillRect(x - 1, y - 0.5, 2, 1); break;
     case 4: g.fillStyle = v < 0.3 ? 'rgba(255,110,40,0.55)' : 'rgba(20,10,8,0.45)'; g.beginPath(); g.arc(x, y, 2 + v * 2, 0, TAU); g.fill(); break;
-    case 5: g.fillStyle = 'rgba(120,230,170,0.45)'; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 2.5, y + 2); g.lineTo(x - 2.5, y + 2); g.fill(); break;
-    case 6: g.fillStyle = 'rgba(235,240,255,0.35)'; g.beginPath(); g.ellipse(x, y, 8 + v * 6, 3, 0, 0, TAU); g.fill(); break;
+    case 5: g.fillStyle = 'rgba(60,110,80,0.4)'; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 2.5, y + 2); g.lineTo(x - 2.5, y + 2); g.fill(); break;
+    case 6: g.fillStyle = 'rgba(150,150,170,0.25)'; g.beginPath(); g.ellipse(x, y, 8 + v * 6, 3, 0, 0, TAU); g.fill(); break;
   }
 }
 

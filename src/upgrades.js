@@ -278,7 +278,7 @@
     if (cR.has('dawn') && s.dawnRing !== G.ring + ':' + G.defeated.length) {
       s.dawnRing = G.ring + ':' + G.defeated.length; p.hp = p.maxHp;
       vfx.flash(0.8); vfx.shake(16); vfx.ring(p.x, p.y, 10, 340, '#fff1c4', 0.8, 12); vfx.feathers(p.x, p.y, 20); part(p.x, p.y, '#fff6c8', 90, 480, 1, 4);
-      G.bullets = G.bullets.filter(b => b.f); uCircle(p.x, p.y, 320, p.dmg * 7 * p.novaMul);
+      G.bullets = G.bullets.filter(b => b.f); uCircle(p.x, p.y, 230, p.dmg * 4 * p.novaMul);
       floatText(p.x, p.y - 60, 'FELTÁMADÁS!', '#fff1c4', 2.2, 26); sfx('nova'); return true;
     }
     if (cB.laststand && s.lastRing !== G.ring + ':' + G.defeated.length) {
@@ -421,7 +421,7 @@
     cache(); const p = G.p;
     if (cB.novashield) { addShield(2, 2); p.inv = Math.max(p.inv, 1.5); vfx.ring(p.x, p.y, 10, 70, PAL.soul, 0.5, 6); floatText(p.x, p.y - 50, '+2 pajzs', PAL.soul, 1.2, 15); }
     if (cR.has('ark')) arkZone(cR.has('covenant') ? 8 : 5, cR.has('covenant'));
-    if (cR.has('gabriel')) later(0.5, () => { vfx.ring(p.x, p.y, 20, 320, '#fff1c4', 0.6, 10); vfx.shake(8); sfx('nova'); G.bullets = G.bullets.filter(b => b.f); uCircle(p.x, p.y, 320, p.dmg * 3.5 * p.novaMul); floatText(p.x, p.y - 56, 'Gábriel harsonája', '#fff1c4', 1.2, 15); });
+    if (cR.has('gabriel')) later(0.5, () => { vfx.ring(p.x, p.y, 20, 320, '#fff1c4', 0.6, 10); vfx.shake(8); sfx('nova'); G.bullets = G.bullets.filter(b => b.f); uCircle(p.x, p.y, 230, p.dmg * 2 * p.novaMul); floatText(p.x, p.y - 56, 'Gábriel harsonája', '#fff1c4', 1.2, 15); });
   });
   function arkZone(dur, rainbow) {
     const p = G.p; let t = 0; const R = 90;
