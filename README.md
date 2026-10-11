@@ -94,10 +94,22 @@ A forrás a `src/` mappában van (`core.html` a motor, `world.js` a nyílt vilá
   - gyógyítás (wisp).
 - **Kombók és cselek**: a démonok láncolják az ütéseiket, és cselből késleltetik a lendítést.
 - **Büntető AI**: ha kifogytál a kitartásból, vagy a kitérésed visszatöltődik, rögtön rád rontanak.
-- **Boss-düh**: 110 mp után a boss felgyorsul.
+- **Bossok**:
+  - jóval tankosabbak: 2,6× HP, és 15% páncél, ami csak megtört egyensúlynál nem véd;
+  - minden bossnak 3 fázisa van, Lucifernek 4, és fázisonként új támadásokat kapnak:
+    - vérgyűrű: forgó lövedékkör;
+    - repedés: becsapódássor feléd;
+    - kereszt: 4, a 3. fázisban 8 irányú becsapódássor;
+    - ketrec: becsapódáskör körülötted egyetlen réssel;
+    - pörgés: követő pengeforgatag;
+    - hármas dobbantás: egyre nagyobb körök;
+    - tépés-sor: 3 csapásos kombó;
+  - 200 mp után dühöngenek.
 - **Balansz**:
-  - a játékos gyengült: 85 HP, kevesebb sebzés, lassabb, rövidebb sebezhetetlenség találat után, kevesebb gyógyulás;
-  - a démonok több HP-val és erősebb ütésekkel jönnek.
+  - a játékos gyengült: 85 HP, kevesebb sebzés, lassabb (190-es sebesség), rövidebb sebezhetetlenség találat után, kevesebb gyógyulás;
+  - a démonok több HP-val és erősebb ütésekkel jönnek;
+  - **Szent Nova** gyengítve: kisebb kör (230), 3× sebzés (eddig 5,5×), a bossokat csak félig sebzi, csak a közeli lövedékeket törli, és lassabban töltődik.
+- **Látvány**: sötétebb, vörösbe forduló tájak, alvadt vértócsák, koponyák, csontok és belsőségek a talajon, erősebb, vöröses vignetta.
 
 ## A gyűrűk átkai
 

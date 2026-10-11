@@ -128,7 +128,7 @@ const BL = [
   { id: 'crit', n: 'Mennyei Ítélet', d: '+12% esély háromszoros kritikus sebzésre', i: '✧', max: 4, a: p => p.crit += 0.12 },
   { id: 'ray', n: 'Fénysugár', d: '+30% lövedéksebesség és hatótáv', i: '☀', max: 2, a: p => { p.shotSpd *= 1.3; p.range *= 1.3; } },
   { id: 'weight', n: 'Isteni Súly', d: 'Nagyobb lövedékek: +35% sebzés, -10% tűzgyorsaság', i: '●', max: 3, a: p => { p.size += 2; p.dmg *= 1.35; p.fireDelay *= 1.1; } },
-  { id: 'gloria', n: 'Glória', d: 'A Szent Nova 60%-kal erősebb és gyorsabban töltődik', i: '❂', max: 3, a: p => { p.novaMul *= 1.6; p.graceGain *= 1.4; } },
+  { id: 'gloria', n: 'Glória', d: 'A Szent Nova 30%-kal erősebb és gyorsabban töltődik', i: '❂', max: 3, a: p => { p.novaMul *= 1.3; p.graceGain *= 1.25; } },
   { id: 'storm', n: 'Villámszárny', d: 'A kitérés sebzi az útjába kerülő démonokat', i: '⚡', max: 2, a: p => p.dashDmg++ },
   { id: 'guard', n: 'Őrangyal', d: 'Egy lövedék hátrafelé is kilő', i: '✠', max: 1, a: p => p.back = 1 },
   { id: 'orb', n: 'Őrző Gömb', d: 'Szent gömb kering körülötted: sebez és blokkol', i: '◎', max: 3, a: p => p.orbs++ },
@@ -393,9 +393,9 @@ function onClick(btn) {
 // ---------- futam ----------
 function makePlayer() {
   return {
-    x: CX, y: CY, r: 13, hp: 85, maxHp: 85, spd: 225, dmg: 8.5, fireDelay: 0.24, st: 100, stMax: 100, stT: 0, shotSpd: 560, range: 0.85, shots: 1, spreadA: 0.17,
+    x: CX, y: CY, r: 13, hp: 85, maxHp: 85, spd: 190, dmg: 8.5, fireDelay: 0.24, st: 100, stMax: 100, stT: 0, shotSpd: 560, range: 0.85, shots: 1, spreadA: 0.17,
     pierce: 0, homing: 0, crit: 0.05, size: 5, back: 0, burn: 0, orbs: 0, lifesteal: 0, regen: 0, regenT: 0, dashCd: 0.95, dashT: 0, dashCool: 0,
-    dashA: 0, dashDmg: 0, dashHit: [], inv: 0, grace: 0, maxGrace: 100, graceGain: 0.65, novaMul: 1, shield: 0, shieldMax: 0, shieldT: 0,
+    dashA: 0, dashDmg: 0, dashHit: [], inv: 0, grace: 0, maxGrace: 100, graceGain: 0.5, novaMul: 1, shield: 0, shieldMax: 0, shieldT: 0,
     soulMul: 1, soulHeal: 0, fireT: 0, face: 0, slow: 0, t: 0, atkSpd: 1, vx: 0, vy: 0,
   };
 }
@@ -653,12 +653,14 @@ function dash() {
   p.dashT = 0.17; p.dashCool = p.dashCd; p.dashHit = []; sfx('dash');
   emit('dash');
 }
+const NOVA_R = 230;
 function nova() {
   const p = G.p; if (p.grace < p.maxGrace || G.dying) { if (p.grace < p.maxGrace) floatText(p.x, p.y - 30, 'A Kegyelem még nem telt meg', '#aaa', 0.8, 12); return; }
   p.grace = 0; G.novaFx = { t: 0 }; G.shake = 12; sfx('nova');
   emit('nova');
-  G.bullets = G.bullets.filter(b => b.f);
-  for (const e of G.enemies) if (!e.dead && dist(e, p) < 320 + e.r) dmgEnemy(e, p.dmg * 5.5 * p.novaMul, false, true);
+  // gyengített nova: kisebb kör, kisebb sebzés, a bossokat csak félig sebzi, csak a közeli lövedékeket törli
+  G.bullets = G.bullets.filter(b => b.f || dist(b, p) > NOVA_R);
+  for (const e of G.enemies) if (!e.dead && dist(e, p) < NOVA_R + e.r) dmgEnemy(e, p.dmg * 3 * p.novaMul * (e.boss ? 0.5 : 1), false, true);
   part(p.x, p.y, '#fff6c8', 80, 500, 0.8, 4);
 }
 function interact() {
@@ -697,7 +699,7 @@ function killEnemy(e, silent) {
   emit('kill', e);
   const p = G.p;
   if (p.lifesteal) p.hp = Math.min(p.maxHp, p.hp + p.lifesteal);
-  p.grace = Math.min(p.maxGrace, p.grace + 3 * p.graceGain);
+  p.grace = Math.min(p.maxGrace, p.grace + 2 * p.graceGain);
   if (e.type === 'splitter') for (let i = 0; i < 2; i++) { const m = mkEnemy('mini', e.x + rand(-10, 10), e.y + rand(-10, 10)); m.spawn = 0.1; G.enemies.push(m); }
   if (e.loot) { const n = Math.ceil(e.loot * 1.3); for (let i = 0; i < n; i++) dropPickup('soul', e.x, e.y); floatText(e.x, e.y - 20, `+${n} ◈ visszaszerezve`, '#ffd700', 1.2, 14); }
   if (!G.hub && !e.boss) {
@@ -1180,7 +1182,7 @@ function drawGame() {
   if (G.novaFx) {
     const k = G.novaFx.t / 0.6;
     ctx.strokeStyle = `rgba(255,240,200,${0.8 * (1 - k)})`; ctx.lineWidth = 22 * (1 - k) + 2;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 320 * k, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x, p.y, NOVA_R * k, 0, TAU); ctx.stroke();
   }
   for (const wv of G.waves) {
     const k = Math.min(1, wv.t / (wv.dur || 0.4));
@@ -1257,7 +1259,7 @@ function drawBloom() {
   if (G.portal) glowDot(G.portal.x, G.portal.y, 50, '#fff0c0', 0.6);
   for (const f of G.fx) if (f.glw) f.glw();
   const wd2 = WEAPONS[G.weapon]; if (wd2 && wd2.glow && !(G.dying > 0)) wd2.glow(p, wstate(G.weapon));
-  if (G.novaFx) { const k = G.novaFx.t / 0.6; g.globalAlpha = 1 - k; g.strokeStyle = '#fff5c8'; g.lineWidth = 40; g.beginPath(); g.arc(p.x, p.y, 320 * k, 0, TAU); g.stroke(); }
+  if (G.novaFx) { const k = G.novaFx.t / 0.6; g.globalAlpha = 1 - k; g.strokeStyle = '#fff5c8'; g.lineWidth = 40; g.beginPath(); g.arc(p.x, p.y, NOVA_R * k, 0, TAU); g.stroke(); }
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   g2ctx.clearRect(0, 0, GLW2.width, GLW2.height); g2ctx.drawImage(GLW, 0, 0, GLW2.width, GLW2.height);
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.imageSmoothingEnabled = true;
@@ -1271,7 +1273,7 @@ const LM = document.createElement('canvas'); LM.width = W / 2; LM.height = H / 2
 const lctx = LM.getContext('2d');
 const VIG = (() => {
   const c = document.createElement('canvas'); c.width = W; c.height = H - 64; const g = c.getContext('2d');
-  const gr = g.createRadialGradient(W / 2, (H - 64) / 2, 220, W / 2, (H - 64) / 2, 640); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.6)');
+  const gr = g.createRadialGradient(W / 2, (H - 64) / 2, 220, W / 2, (H - 64) / 2, 640); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.55, 'rgba(20,0,2,0.35)'); gr.addColorStop(1, 'rgba(10,0,0,0.88)');
   g.fillStyle = gr; g.fillRect(0, 0, W, H - 64); return c;
 })();
 function light(x, y, r, a) {
@@ -1281,12 +1283,12 @@ function light(x, y, r, a) {
 }
 function drawLighting() {
   const p = G.p, ri = G.curReg;
-  const dark = ri === 7 ? 0.08 : ri === 3 ? 0.42 : ri === 6 ? 0.26 : ri === 4 ? 0.22 : 0.2;
+  const dark = ri === 7 ? 0.3 : ri === 3 ? 0.62 : ri === 6 ? 0.46 : ri === 4 ? 0.42 : 0.48;
   lctx.globalCompositeOperation = 'source-over'; lctx.clearRect(0, 0, LM.width, LM.height);
-  lctx.fillStyle = `rgba(4,2,8,${dark})`; lctx.fillRect(0, 0, LM.width, LM.height);
+  lctx.fillStyle = `rgba(14,1,2,${dark})`; lctx.fillRect(0, 0, LM.width, LM.height);
   lctx.globalCompositeOperation = 'destination-out';
   const L2 = (x, y, r, a) => light(x - CAM.x, y - CAM.y + 64, r, a);
-  if (!(G.dying > 0)) L2(p.x, p.y, ri === 3 ? 380 : 520, 1);
+  if (!(G.dying > 0)) L2(p.x, p.y, ri === 3 ? 340 : 440, 1);
   for (const o of G.pois) if (Math.abs(o.x - p.x) < 900 && Math.abs(o.y - p.y) < 700) L2(o.x, o.y, o.type === 'boss' ? 700 : 320, 0.6);
   let n = 0;
   for (const b of G.bullets) { if (++n > 30) break; L2(b.x, b.y, 70, 0.4); }

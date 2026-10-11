@@ -75,6 +75,20 @@ Object.assign(MOVES, {
   grab: { kind: 'melee', min: 0, max: 95, wind: 0.55, act: 0.2, rec: 0.75, cd: 6.5, shape: 'grab', r: 74, half: 0.9, dmg: 2.2, hold: 1.1 },
   bgrab: { kind: 'melee', min: 0, max: 150, wind: 0.6, act: 0.2, rec: 0.8, cd: 8, shape: 'grab', r: 120, half: 1.0, dmg: 2.6, hold: 1.3 },
 });
+// ----- főellenségek új mozdulatai: vérgyűrű, repedés, kereszt, ketrec, pörgés, dobbantás-sor, tépés-sor -----
+Object.assign(MOVES, {
+  bloodring: { kind: 'ranged', min: 0, max: 620, wind: 0.8, act: 0.75, rec: 0.7, cd: 7, shape: 'proj', ring: 1, n: 14, spread: 0, spd: 165, br: 9, dmg: 0.8, burst: 3, twist: 0.11, col: '#9a1a14' },
+  quake: { kind: 'ranged', min: 60, max: 650, wind: 0.7, act: 0.05, rec: 0.6, cd: 5, shape: 'quake', n: 9, step: 62, r: 44, dmg: 1.4, delay: 0.3, stepT: 0.07 },
+  cross: { kind: 'special', min: 0, max: 520, wind: 0.8, act: 0.05, rec: 0.7, cd: 7.5, shape: 'cross', n: 7, step: 60, r: 40, dmg: 1.3, delay: 0.35, stepT: 0.06, arms: 4 },
+  cage: { kind: 'ranged', min: 0, max: 700, wind: 0.6, act: 0.05, rec: 0.6, cd: 9, shape: 'cage', n: 11, rad: 135, r: 50, dmg: 1.5, delay: 0.75 },
+  spin: { kind: 'melee', min: 0, max: 260, wind: 0.7, act: 1.8, rec: 0.9, cd: 7, shape: 'spin', r: 118, dmg: 0.8, tick: 0.3, spd: 170 },
+  bstomp: { kind: 'melee', min: 0, max: 160, wind: 0.7, act: 0.1, rec: 0.25, cd: 6.5, shape: 'circle', r: 120, dmg: 1.3, shake: 8, then: 'bstomp2', thenP: 0.85, feint: 1 },
+  bstomp2: { kind: 'melee', min: 0, max: 260, wind: 0.35, act: 0.1, rec: 0.25, cd: 0, shape: 'circle', r: 175, dmg: 1.4, shake: 10, then: 'bstomp3', thenP: 0.7 },
+  bstomp3: { kind: 'melee', min: 0, max: 320, wind: 0.45, act: 0.12, rec: 1.0, cd: 0, shape: 'circle', r: 240, dmg: 1.6, shake: 14 },
+  rend: { kind: 'melee', min: 0, max: 170, wind: 0.4, act: 0.12, rec: 0.15, cd: 3.4, shape: 'arc', r: 120, half: 0.9, dmg: 1.0, lunge: 200, then: 'rend2', thenP: 0.9, feint: 1 },
+  rend2: { kind: 'melee', min: 0, max: 240, wind: 0.22, act: 0.12, rec: 0.15, cd: 0, shape: 'arc', r: 130, half: 0.9, dmg: 1.0, lunge: 220, then: 'rend3', thenP: 0.75 },
+  rend3: { kind: 'melee', min: 0, max: 280, wind: 0.3, act: 0.14, rec: 0.8, cd: 0, shape: 'arc', r: 150, half: 1.4, dmg: 1.5, lunge: 260 },
+});
 // kombók: a lecsapás után bizonyos eséllyel azonnal jön a következő
 Object.assign(MOVES.bite, { then: 'bite2', thenP: 0.45 });
 Object.assign(MOVES.swipe, { then: 'swipe2', thenP: 0.6, feint: 1 });
@@ -98,13 +112,28 @@ const EDEF = {
   shadow: { pref: [60, 200], sight: 520, moves: { combo: 2, dart: 1.5, spit: 1.2, blink: 1, guard: 0.9 }, agile: 0.55 },
 };
 const BOSS_MOVES = {
-  asmodeus: [{ whip: 3, hearts: 2.2, charge: 1.4, charm: 1.2, bleap: 1 }, { whip: 3, hearts: 2.4, bcharge: 1.6, charm: 1.6, starfall: 0.8, bleap: 1.4, bgrab: 1 }],
-  beelzebub: [{ bslam: 2, bile: 2.4, flies: 1.2, swipe: 2, bgrab: 1 }, { bslam: 2.2, bile: 2.5, flies: 1.5, swipe: 2.2, bcharge: 1.2, bgrab: 1.4, bleap: 1 }],
-  mammon: [{ coins: 2.6, goldfist: 2, swipe: 2.2, turrets: 0.8, guard: 1 }, { coins: 2.8, goldfist: 2.2, goldrain: 1.6, swipe: 2.4, turrets: 1, guard: 1.2, bgrab: 1 }],
-  belphegor: [{ sleep: 2, roll: 1.6, swipe: 2.5, yawn: 1, bgrab: 0.8 }, { sleep: 2.2, roll: 2, swipe: 2.5, yawn: 1.4, bslam: 1.2, bleap: 1 }],
-  satan: [{ cleave: 3, fireballs: 1.8, bcharge: 1.6, pillars: 1.4, guard: 0.8 }, { cleave: 3.2, fireballs: 2, bcharge: 2, pillars: 2, bleap: 1.4, bgrab: 1.2 }],
-  leviathan: [{ dive: 2, bite: 2, wave: 2, mirror: 0.8 }, { dive: 2.5, whip: 2.2, wave: 2.4, mirror: 1, bgrab: 1.2 }],
-  lucifer: [{ combo: 3, wingslash: 2, starfall: 1.4, guard: 1 }, { combo: 3, wingslash: 2, starfall: 1.6, laser: 1.4, minions: 1, bcharge: 1.2, bleap: 1.2 }, { combo: 3.2, wingslash: 2.2, starfall: 2, laser: 1.8, supernova: 1.2, teleslash: 1.8, bgrab: 1.2 }],
+  asmodeus: [{ whip: 3, hearts: 2.2, charge: 1.4, charm: 1.2, bleap: 1, rend: 1 },
+    { whip: 3, hearts: 2.4, bcharge: 1.6, charm: 1.6, starfall: 0.8, bleap: 1.4, bgrab: 1, rend: 1.4, cage: 1 },
+    { whip: 3, hearts: 2.4, bcharge: 1.6, charm: 1.6, starfall: 1.2, bleap: 1.4, bgrab: 1.2, rend: 1.8, cage: 1.4, bloodring: 1.2, spin: 1 }],
+  beelzebub: [{ bslam: 2, bile: 2.4, flies: 1.2, swipe: 2, bgrab: 1, bstomp: 1 },
+    { bslam: 2.2, bile: 2.5, flies: 1.5, swipe: 2.2, bcharge: 1.2, bgrab: 1.4, bleap: 1, quake: 1.2, spin: 1 },
+    { bslam: 2.2, bile: 2.5, flies: 1.5, swipe: 2.2, bcharge: 1.4, bgrab: 1.4, bleap: 1.2, quake: 1.4, spin: 1.3, bloodring: 1.4, cage: 1.2, bstomp: 1.2 }],
+  mammon: [{ coins: 2.6, goldfist: 2, swipe: 2.2, turrets: 0.8, guard: 1, quake: 0.8 },
+    { coins: 2.8, goldfist: 2.2, goldrain: 1.6, swipe: 2.4, turrets: 1, guard: 1.2, bgrab: 1, quake: 1.2, cross: 1.2 },
+    { coins: 2.8, goldfist: 2.2, goldrain: 1.8, swipe: 2.4, turrets: 1, guard: 1.2, bgrab: 1.2, quake: 1.4, cross: 1.4, bloodring: 1.3, spin: 1.1, bstomp: 1.2 }],
+  belphegor: [{ sleep: 2, roll: 1.6, swipe: 2.5, yawn: 1, bgrab: 0.8, bstomp: 1 },
+    { sleep: 2.2, roll: 2, swipe: 2.5, yawn: 1.4, bslam: 1.2, bleap: 1, quake: 1.2, bstomp: 1.2 },
+    { sleep: 2.2, roll: 2, swipe: 2.5, yawn: 1.4, bslam: 1.4, bleap: 1.2, quake: 1.4, bstomp: 1.4, cage: 1.3, cross: 1.2, bloodring: 1.2 }],
+  satan: [{ cleave: 3, fireballs: 1.8, bcharge: 1.6, pillars: 1.4, guard: 0.8, quake: 1 },
+    { cleave: 3.2, fireballs: 2, bcharge: 2, pillars: 2, bleap: 1.4, bgrab: 1.2, cross: 1.3, rend: 1.4 },
+    { cleave: 3.2, fireballs: 2, bcharge: 2, pillars: 2, bleap: 1.4, bgrab: 1.4, cross: 1.5, rend: 1.8, bloodring: 1.5, spin: 1.3, bstomp: 1.3, cage: 1.2 }],
+  leviathan: [{ dive: 2, bite: 2, wave: 2, mirror: 0.8, spin: 1 },
+    { dive: 2.5, whip: 2.2, wave: 2.4, mirror: 1, bgrab: 1.2, bloodring: 1.2, quake: 1.2 },
+    { dive: 2.5, whip: 2.4, wave: 2.4, mirror: 1, bgrab: 1.4, bloodring: 1.5, quake: 1.4, cross: 1.3, cage: 1.3, rend: 1.5, bleap: 1.2 }],
+  lucifer: [{ combo: 3, wingslash: 2, starfall: 1.4, guard: 1, rend: 1.2 },
+    { combo: 3, wingslash: 2, starfall: 1.6, laser: 1.4, minions: 1, bcharge: 1.2, bleap: 1.2, cross: 1.2, bloodring: 1 },
+    { combo: 3.2, wingslash: 2.2, starfall: 2, laser: 1.8, supernova: 1.2, teleslash: 1.8, bgrab: 1.2, rend: 1.6, cage: 1.3, quake: 1.2, spin: 1 },
+    { combo: 3.2, wingslash: 2.2, starfall: 2.2, laser: 2, supernova: 1.6, teleslash: 2, bgrab: 1.4, rend: 1.8, cage: 1.5, quake: 1.4, spin: 1.3, cross: 1.5, bloodring: 1.8, bstomp: 1.3 }],
 };
 
 // ---------- létrehozás ----------
@@ -118,7 +147,7 @@ function spawnBoss(x, y) {
   const ri = G.ring, bd = BOSSES[ri], bhp = bd.key === 'lucifer' ? bd.hp : BOSS_HP[Math.min(5, G.lvl)];
   const f = findFree(x, y, 40);
   const b = mkEnemy('imp', f.x, f.y, ri);
-  Object.assign(b, { type: 'boss', key: bd.key, bd, boss: true, r: bd.r, hp: bhp * 1.35, maxHp: bhp * 1.35, poise: bhp * 0.16, poiseMax: bhp * 0.16, age: 0, spd: bd.spd * 1.15, spawn: 0, intro: 2.2, aggro: true,
+  Object.assign(b, { type: 'boss', key: bd.key, bd, boss: true, r: bd.r, hp: bhp * 2.6, maxHp: bhp * 2.6, poise: bhp * 0.22, poiseMax: bhp * 0.22, armor: 0.15, age: 0, spd: bd.spd * 1.15, spawn: 0, intro: 2.2, aggro: true,
     phase: 1, sm: 1 + G.lvl * 0.04, inv: 0, trail: [], atk: null, home: { x, y } });
   G.enemies.push(b); G.boss = b; G.bossAlive = true;
   G.banner = { title: bd.name, sub: bd.title, line: bd.line, t: 0, dur: 3.4, col: RINGS[ri].col };
@@ -268,7 +297,7 @@ on('dmgOut', (d, e, o) => {
     const front = arcDiff(e.face || 0, angTo(e, G.p)) < 1.15;
     if (front && !(o && o.heavyBreak)) { vfx.spark(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, e.face, 0.8, '#e8e0c8', 6, 260, 0.25, 2); sfx('block'); e.poise -= d * 0.6; e.poiseT = 2; if (e.poise <= 0) { e.guarding = false; e.act = null; e.stun = Math.max(e.stun || 0, e.boss ? 0 : 0.9); floatText(e.x, e.y - e.r * 2.8, 'BLOKK ÁTTÖRVE', '#e8c8a0', 0.9, 13); e.poise = e.poiseMax; } return d * 0.2; }
   }
-  if (e.broken > 0) d *= 1.5;
+  if (e.broken > 0) d *= 1.5; else if (e.armor) d *= 1 - e.armor;
   return d;
 }, true);
 function moveSet(e) { return e.boss ? BOSS_MOVES[e.key][Math.min(BOSS_MOVES[e.key].length, e.phase) - 1] : (EDEF[e.type] || EDEF.imp).moves; }
@@ -303,6 +332,7 @@ function startAct(e, id) {
   if (m.shape === 'leap') { const dd = Math.min(m.max, dist(e, p) + 20), aa = angTo(e, p), f = findFree(e.x + Math.cos(aa) * dd, e.y + Math.sin(aa) * dd, e.r, 80); e.act.tx = f.x; e.act.ty = f.y; }
   e.lastMove = id; e.cds[id] = m.cd * (e.boss ? 0.85 : 1) * rand(0.85, 1.2); e.atk = id;
   if (m.shape === 'lob' || m.shape === 'rain') windMarks(e, m);
+  if (m.shape === 'quake' || m.shape === 'cross' || m.shape === 'cage') patternMarks(e, m);
   if (m.shape === 'beam') { e.act.beam = { o: e, ang: e.act.a, rot: (Math.random() < 0.5 ? 1 : -1) * 0.25, warn: m.wind, life: m.act, w: 26 }; G.beams.push(e.act.beam); sfx('laser'); }
   if (m.shape === 'pull') { G.charm = m.wind + m.act; }
   if (e.boss) sfx('charge');
@@ -312,6 +342,20 @@ function windMarks(e, m) {
   const mk = (x, y) => { const f = findFree(x, y, 6, 60), w0 = m.delay + (e.act.wind || m.wind); G.hazards.push({ x: f.x, y: f.y, r: m.r, type: 'blast', warn: w0, warn0: w0, life: m.linger || 0.3, dmg, slow: m.slow, burn: m.burn, col: RINGS[e.ri].col }); };
   if (m.shape === 'lob') mk(e.act.tx, e.act.ty);
   else { mk(p.x + p.vx * 0.3, p.y + p.vy * 0.3); for (let i = 1; i < m.n; i++) { const a = rand(0, TAU), r = rand(70, m.around); mk(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); } }
+}
+// sorozatos becsapódások: repedés a játékos felé, kereszt a boss körül, ketrec a játékos körül
+function patternMarks(e, m) {
+  const p = G.p, A = e.act, dmg = eDmg() * m.dmg * 1.25, col = RINGS[e.ri].col, w0 = (A.wind || m.wind) + m.delay;
+  const mk = (x, y, w) => { const f = findFree(x, y, 6, 40); G.hazards.push({ x: f.x, y: f.y, r: m.r, type: 'blast', warn: w, warn0: w, life: 0.25, dmg, col }); };
+  if (m.shape === 'quake') { const a = angTo(e, p); for (let i = 1; i <= m.n; i++) mk(e.x + Math.cos(a) * i * m.step, e.y + Math.sin(a) * i * m.step, w0 + i * m.stepT); }
+  else if (m.shape === 'cross') {
+    const arms = e.phase >= 3 ? 8 : m.arms, a0 = Math.random() < 0.5 ? 0 : Math.PI / 4;
+    for (let k = 0; k < arms; k++) { const a = a0 + k * TAU / arms; for (let i = 1; i <= m.n; i++) mk(e.x + Math.cos(a) * i * m.step, e.y + Math.sin(a) * i * m.step, w0 + i * m.stepT); }
+  } else {
+    const gap = Math.floor(rand(0, m.n)), cx = p.x, cy = p.y;
+    for (let i = 0; i < m.n; i++) { if (i === gap) continue; const a = i / m.n * TAU; mk(cx + Math.cos(a) * m.rad, cy + Math.sin(a) * m.rad, w0); }
+    mk(cx, cy, w0 + 0.45);
+  }
 }
 function runAct(e, dt, d) {
   const A = e.act, m = A.m, p = G.p;
@@ -360,6 +404,8 @@ function actStart(e, A, m) {
     case 'hop': { const a = angTo(p, e) + rand(-0.5, 0.5); e.kbx = Math.cos(a) * 520; e.kby = Math.sin(a) * 520; break; }
     case 'leap': A.sx = e.x; A.sy = e.y; sfx('dash'); break;
     case 'guard': e.guarding = true; break;
+    case 'spin': A.tick = 0; sfx('slash'); break;
+    case 'quake': case 'cross': case 'cage': vfx.shake(5); sfx('boom'); break;
     case 'grab':
       if (pHitCheck(q => { const dd = dist(e, q); return dd < m.r + q.r && (dd < e.r + q.r + 8 || arcDiff(angTo(e, q), A.a) <= m.half); })) {
         p.held = { e, t: m.hold, dmg, tick: 0 }; p.inv = 0; floatText(p.x, p.y - 44, 'MEGRAGADOTT! – KITÉRÉS a szabaduláshoz', '#e8c8a0', 1.2, 13); sfx('hurt'); vfx.shake(6);
@@ -392,10 +438,17 @@ function actTick(e, A, m, dt) {
     if (A.shots > 0 && A.next <= 0) {
       A.shots--; A.next = 0.16; const a0 = angTo(e, p);
       const col = m.col || RINGS[e.ri].col;
-      for (let i = 0; i < m.n; i++) { const a = a0 + (m.n > 1 ? (i - (m.n - 1) / 2) * m.spread : rand(-m.spread, m.spread)); eBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a, m.spd * (e.sm || 1), { r: m.br, dmg: dmg * 0.9, col, homing: m.homing, life: m.life || 3.5, bounce: m.bounce, pierceP: m.pierce, big: m.br > 14 }); }
-      sfx('shoot');
+      for (let i = 0; i < m.n; i++) { const a = m.ring ? a0 + i * TAU / m.n + A.n * (m.twist || 0) : a0 + (m.n > 1 ? (i - (m.n - 1) / 2) * m.spread : rand(-m.spread, m.spread)); eBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a, m.spd * (e.sm || 1), { r: m.br, dmg: dmg * 0.9, col, homing: m.homing, life: m.life || 3.5, bounce: m.bounce, pierceP: m.pierce, big: m.br > 14 }); }
+      sfx('shoot'); A.n++;
     }
     if (A.shots <= 0 && !m.burst) A.stop = true;
+  } else if (m.shape === 'spin') {
+    const a = angTo(e, p); e.x += Math.cos(a) * m.spd * dt; e.y += Math.sin(a) * m.spd * dt; e.face += dt * 18;
+    if ((A.tick -= dt) <= 0) {
+      A.tick = m.tick; vfx.ring(e.x, e.y, e.r, m.r, '#8a1a14', 0.25, 5); sfx('slash');
+      if (pHitCheck(q => dist(e, q) < m.r + q.r * 0.5)) hurtPlayer(dmg * 0.8, e);
+      if (Math.random() < 0.6) bloodSpray(e.x, e.y, rand(0, TAU), 4, 260, 1.2, BLOOD.demon, 1);
+    }
   } else if (m.shape === 'pull') {
     if (Math.random() < 0.3) G.parts.push({ x: p.x + rand(-20, 20), y: p.y + rand(-20, 20), vx: (e.x - p.x) * 0.8, vy: (e.y - p.y) * 0.8, life: 0.5, max: 0.5, col: '#ff9ad0', size: 3 });
   }
@@ -409,14 +462,15 @@ function leapLand(e, A, m) {
 function bossPhase(b, dt) {
   if (b.intro > 0) { b.intro -= dt; return; }
   b.age = (b.age || 0) + dt;
-  if (b.age > 110 && !b.enraged) { b.enraged = true; b.spd *= 1.2; b.sm = (b.sm || 1) * 1.15; G.banner = { small: true, title: b.bd.name + ' DÜHÖNG', sub: 'Túl sokáig tart a harc', line: '', t: 0, dur: 2.2, col: '#c2401f' }; sfx('roar'); }
+  if (b.age > 200 && !b.enraged) { b.enraged = true; b.spd *= 1.2; b.sm = (b.sm || 1) * 1.15; G.banner = { small: true, title: b.bd.name + ' DÜHÖNG', sub: 'Túl sokáig tart a harc', line: '', t: 0, dur: 2.2, col: '#c2401f' }; sfx('roar'); }
   if (b.inv > 0) b.inv -= dt;
-  const max = BOSS_MOVES[b.key].length, ph = max === 3 ? (b.hp < b.maxHp * 0.33 ? 3 : b.hp < b.maxHp * 0.66 ? 2 : 1) : (b.hp < b.maxHp * 0.5 ? 2 : 1);
+  const max = BOSS_MOVES[b.key].length, ph = Math.min(max, 1 + Math.floor((1 - b.hp / b.maxHp) * max));
   if (ph > b.phase) {
     b.phase = ph; b.inv = 1.2; b.act = null; G.charm = 0; G.beams.length = 0; G.shake = 16; sfx('roar'); b.spd *= 1.12;
     for (const k in b.cds) b.cds[k] = Math.min(b.cds[k], 1);
     part(b.x, b.y, RINGS[b.ri].col, 60, 360, 1, 4);
-    if (b.key === 'lucifer') G.banner = { title: 'LUCIFER', sub: ph === 2 ? 'A Hajnalcsillag haragja' : 'A Bukott Fény utolsó lángja', line: ph === 2 ? '„Én vagyok a Fényhozó! Előttem a csillagok is meghajolnak!”' : '„Ha nem uralkodhatom a Mennyben, akkor semmi se maradjon!”', t: 0, dur: 3, col: '#c08bff' };
+    if (b.key === 'lucifer' && ph >= 4) G.banner = { title: 'LUCIFER', sub: 'Az utolsó ítélet', line: '„Együtt zuhanunk, angyal. Mindörökké.”', t: 0, dur: 3, col: '#c08bff' };
+    else if (b.key === 'lucifer') G.banner = { title: 'LUCIFER', sub: ph === 2 ? 'A Hajnalcsillag haragja' : 'A Bukott Fény utolsó lángja', line: ph === 2 ? '„Én vagyok a Fényhozó! Előttem a csillagok is meghajolnak!”' : '„Ha nem uralkodhatom a Mennyben, akkor semmi se maradjon!”', t: 0, dur: 3, col: '#c08bff' };
     else G.banner = { title: b.bd.name, sub: 'feldühödött', line: '', t: 0, dur: 1.8, col: RINGS[b.ri].col };
   }
 }
@@ -434,7 +488,7 @@ function drawTelegraph(e) {
     const r = m.r + (m.lunge ? m.lunge * 0.18 : 0);
     ctx.fillStyle = hexA(col, 0.10 + 0.22 * k); ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.arc(e.x, e.y, r, A.a - m.half, A.a + m.half); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = hexA(col, 0.55); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, r * k, A.a - m.half, A.a + m.half); ctx.stroke();
-  } else if (m.shape === 'circle') {
+  } else if (m.shape === 'circle' || m.shape === 'spin') {
     ctx.fillStyle = hexA(col, 0.08 + 0.18 * k); ctx.beginPath(); ctx.arc(e.x, e.y, m.r, 0, TAU); ctx.fill();
     ctx.strokeStyle = hexA(col, 0.6); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, m.r * k, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(e.x, e.y, m.r, 0, TAU); ctx.stroke();
   } else if (m.shape === 'line') {
@@ -442,6 +496,8 @@ function drawTelegraph(e) {
     ctx.translate(e.x, e.y); ctx.rotate(A.a);
     ctx.fillStyle = hexA(col, 0.1 + 0.2 * k); ctx.fillRect(0, -m.w / 2, len, m.w);
     ctx.fillStyle = hexA(col, 0.45); ctx.fillRect(0, -m.w / 2, len * k, 3); ctx.fillRect(0, m.w / 2 - 3, len * k, 3);
+  } else if (m.shape === 'proj' && m.ring) {
+    ctx.strokeStyle = hexA(m.col, 0.3 + 0.5 * k); ctx.lineWidth = 3; ctx.setLineDash([4, 10]); ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 14 + 40 * k, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
   } else if (m.shape === 'proj') {
     ctx.strokeStyle = hexA(col, 0.25 + 0.35 * k); ctx.lineWidth = 1.5; ctx.setLineDash([6, 8]);
     ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + Math.cos(A.a) * 160, e.y + Math.sin(A.a) * 160); ctx.stroke(); ctx.setLineDash([]);
