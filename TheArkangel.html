@@ -81,6 +81,7 @@ const GATE_ORDER = [0, 1, 2, 6, 3, 4, 5];
 // ---------- bővíthető regiszterek (a src/*.js részek töltik fel) ----------
 const WEAPONS = {};   // id -> { n, short, kind:'melee'|'ranged', d, col, update(p, ws, dt, aim), drawHeld?, glow?, icon(x,y,s), lv:[...], morphs:[...] }
 const RELICS = {};    // id -> { n, d, i, col, rar, apply?() }
+const TEMPTS = {};    // id -> { ri, n, i, d (rád hat), d2 (a démonokra hat), p(pl), e(mod) } — a bűnök kísértései (src/tempt.js)
 const LEVELS = {};    // ri -> { intro, rooms:[...], bossTalk } ; LEVELS.hub, LEVELS.epilogue
 const UPG = {};       // offers(src, n) -> ajánlatok listája
 const PAL = { holy: '#f0dca0', gold: '#d8b050', white: '#f0e8dc', soul: '#9fd0dc', blood: '#9a1414', fire: '#d8642a', ember: '#d8903a',
@@ -219,7 +220,7 @@ function toggleFS() { try { if (!document.fullscreenElement) document.documentEl
 
 // ---------- érintéses vezérlés (telefon / tablet) ----------
 // Bal térfél: mozgás-joystick. Jobb térfél: célzó-joystick (húzva lő; csak érintve a legközelebbi démonra lő).
-// Gombok: kitérés, Szent Nova, vásárlás, szünet.
+// Gombok: kitérés, Szent Nova, fegyvercsere, szünet.
 const touch = {
   on: matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window,
   move: null, aim: null, btns: {},
@@ -227,18 +228,11 @@ const touch = {
 const TB = {
   dash: { x: W - 80, y: H - 80, r: 44, label: 'KITÉRÉS' },
   nova: { x: W - 190, y: H - 52, r: 34, label: 'NOVA' },
-  use: { x: W - 175, y: H - 155, r: 32, label: 'VÉTEL' },
   swap: { x: W - 62, y: H - 192, r: 28, label: 'FEGYVER' },
   pause: { x: 742, y: 32, r: 20, label: '' },
 };
 function tpos(t) { const r = cv.getBoundingClientRect(); return { x: (t.clientX - r.left) / r.width * W, y: (t.clientY - r.top) / r.height * H }; }
-function shopItems() { const out = []; if (G && G.pois) for (const o of G.pois) if (o.type === 'shop' && o.items && Math.hypot(o.x - G.p.x, o.y - G.p.y) < 400) out.push(...o.items); return out; }
-function nearShopItem() {
-  if (!G || !G.pois) return null;
-  for (const it of shopItems()) if (!it.sold && dist(it, G.p) <= 40) return it;
-  return null;
-}
-function tbVisible(k) { if (G && G.hub && (k === 'swap' || k === 'nova')) return false; return k !== 'use' || !!nearShopItem(); }
+function tbVisible(k) { return !(G && G.hub && (k === 'swap' || k === 'nova')); }
 function tryLandscape() {
   try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { }
   try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => { }); } catch (e) { }
@@ -262,7 +256,7 @@ function touchStart(e) {
     for (const k in TB) { const b = TB[k]; if (tbVisible(k) && Math.hypot(q.x - b.x, q.y - b.y) < b.r + 14) { hit = k; break; } }
     if (hit) {
       touch.btns[t.identifier] = hit;
-      if (hit === 'dash') dash(); else if (hit === 'nova') nova(); else if (hit === 'use') interact(); else if (hit === 'swap') swapWeapon(); else if (hit === 'pause') state = 'pause';
+      if (hit === 'dash') dash(); else if (hit === 'nova') nova(); else if (hit === 'swap') swapWeapon(); else if (hit === 'pause') state = 'pause';
     } else if (q.x < W / 2) { if (!touch.move) touch.move = { id: t.identifier, ox: q.x, oy: q.y, x: q.x, y: q.y }; }
     else if (!touch.aim) touch.aim = { id: t.identifier, ox: q.x, oy: q.y, x: q.x, y: q.y };
   }
@@ -327,7 +321,6 @@ function drawTouch() {
     let ready = true, frac = 1, col = '#fff6c8';
     if (k === 'dash') { frac = p.dashCool > 0 ? 1 - p.dashCool / p.dashCd : 1; ready = frac >= 1; }
     if (k === 'nova') { frac = p.grace / p.maxGrace; ready = frac >= 1; col = '#ffd75e'; }
-    if (k === 'use') col = '#8fe8ff';
     ctx.globalAlpha = held.has(k) ? 0.7 : 0.4; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
     ctx.globalAlpha = ready ? 0.9 : 0.45; ctx.strokeStyle = col; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
@@ -366,7 +359,6 @@ function onKey(c) {
     if (c === 'Escape' || c === 'KeyP') state = 'pause';
     else if (c === 'KeyQ') nova();
     else if (c === 'Space' || c === 'ShiftLeft' || c === 'ShiftRight') dash();
-    else if (c === 'KeyE') interact();
     else if (c === 'KeyX' || c === 'Tab') swapWeapon();
     else if (c === 'KeyN') state = 'map';
   }
@@ -406,7 +398,7 @@ function startRun() {
     fade: 1, banner: null, bossAlive: false, boss: null, portal: null, shake: 0, hurtFx: 0, novaFx: null,
     afterBoss: 0, winT: 0, dying: 0, orbA: 0, charm: 0, roomT: 0, bossesKilled: 0,
     lvl: 0, hub: true, defeated: [], weapon: 'blade', hubRoom: null, slashes: [], amb: [], msgT: 0, waves: [], hitstop: 0, flash: 0,
-    slots: { melee: 'blade', ranged: 'bow' }, ws: {}, wlv: {}, morph: {}, relics: [], fx: [], talk: null, flags: {},
+    slots: { melee: 'blade', ranged: 'bow' }, ws: {}, wlv: {}, morph: {}, relics: [], tempts: [], fx: [], talk: null, flags: {},
   };
   if (!WEAPONS[G.slots.melee]) G.slots.melee = Object.keys(WEAPONS).find(k => WEAPONS[k].kind === 'melee');
   if (!WEAPONS[G.slots.ranged]) G.slots.ranged = Object.keys(WEAPONS).find(k => WEAPONS[k].kind === 'ranged');
@@ -465,7 +457,8 @@ function ringBanner() {
   const r = RG();
   G.banner = { title: `${ROMAN[G.ring]}. GYŰRŰ — ${r.name.toUpperCase()}`, sub: r.latin, line: r.verse, curse: CURSE[G.ring], t: 0, dur: 5.2, col: r.col };
 }
-const eDmg = () => 13 + G.lvl * 2.4, cDmg = () => 15 + G.lvl * 2.8;
+// G.eDmgMul: a felvett kísértések a démonok sebzését is növelik (src/tempt.js)
+const eDmg = () => (13 + G.lvl * 2.4) * (G.eDmgMul || 1), cDmg = () => (15 + G.lvl * 2.8) * (G.eDmgMul || 1);
 
 // ---------- pálya generálás ----------
 const DIRS = [[0, -1, 'n'], [1, 0, 'e'], [0, 1, 's'], [-1, 0, 'w']];
@@ -511,7 +504,7 @@ function pick(i) {
   G.choice = null; state = 'play'; mouse.down = false;
   takeOffer(c.opts[i]); if (c.cb) c.cb();
 }
-function cardRect(i) { const n = G && G.choice ? G.choice.opts.length : 3, w = n > 3 ? 210 : 250, gap = n > 3 ? 22 : 30, x0 = CX - (n * w + (n - 1) * gap) / 2; return { x: x0 + i * (w + gap), y: 190, w, h: 310 }; }
+function cardRect(i) { const n = G && G.choice ? G.choice.opts.length : 3, w = n > 3 ? 210 : 250, gap = n > 3 ? 22 : 30, x0 = CX - (n * w + (n - 1) * gap) / 2; return { x: x0 + i * (w + gap), y: 180, w, h: 340 }; }
 function cardAt(x, y) { const n = G && G.choice ? G.choice.opts.length : 3; for (let i = 0; i < n; i++) { const r = cardRect(i); if (x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h) return i; } return -1; }
 
 // ---------- akciók ----------
@@ -663,20 +656,6 @@ function nova() {
   for (const e of G.enemies) if (!e.dead && dist(e, p) < NOVA_R + e.r) dmgEnemy(e, p.dmg * 3 * p.novaMul * (e.boss ? 0.5 : 1), false, true);
   part(p.x, p.y, '#fff6c8', 80, 500, 0.8, 4);
 }
-function interact() {
-  const p = G.p;
-  {
-    for (const it of shopItems()) {
-      if (it.sold || dist(it, p) > 40) continue;
-      if (G.souls < it.price) { floatText(it.x, it.y - 40, 'Nincs elég lélek', '#ff8080', 1, 14); sfx('block'); return; }
-      G.souls -= it.price; it.sold = true; sfx('buy');
-      if (it.heal) { p.hp = Math.min(p.maxHp, p.hp + 40); floatText(p.x, p.y - 30, '+40', '#ff6b8a', 1, 16); }
-      else takeOffer(it.offer);
-      return;
-    }
-  }
-}
-
 // ---------- sebzés ----------
 function dmgEnemy(e, d, cr, nova, o) {
   if (e.dead || e.ghost || (e.boss && (e.intro > 0 || e.inv > 0))) return;
@@ -753,7 +732,9 @@ function floatText(x, y, s, col, life = 1, size = 14) { G.texts.push({ x, y, s, 
 // ---------- ellenséges lövedékek ----------
 function eBullet(x, y, a, spd, o) {
   if (G.bullets.length > 1100) return;
-  G.bullets.push(Object.assign({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg: eDmg(), f: false, life: 7, col: RG().col }, o || {}));
+  const b = Object.assign({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg: eDmg(), f: false, life: 7, col: RG().col }, o || {});
+  if (G.eHoming) b.homing = Math.max(b.homing || 0, G.eHoming);   // a Csábító Töltény kísértése: a démonok lövedékei is követnek
+  G.bullets.push(b);
 }
 function radial(x, y, n, spd, off = 0, o) { for (let i = 0; i < n; i++) eBullet(x, y, off + i / n * TAU, spd, o); }
 
@@ -840,7 +821,7 @@ function update(dt) {
     if (G.dying || d > 700) continue;
     if (k.type === 'soul' && d < 150 && k.t > 0.3) { const s2 = 500 * (1 - d / 160) + 80; k.x += (p.x - k.x) / d * s2 * dt; k.y += (p.y - k.y) / d * s2 * dt; }
     if (d < p.r + 10 && k.t > 0.25) {
-      if (k.type === 'soul') { G.souls++; k.gone = true; sfx('soul'); if (p.soulHeal) p.hp = Math.min(p.maxHp, p.hp + p.soulHeal); }
+      if (k.type === 'soul') { G.souls++; k.gone = true; sfx('soul'); p.grace = Math.min(p.maxGrace, p.grace + 1); if (p.soulHeal) p.hp = Math.min(p.maxHp, p.hp + p.soulHeal); }
       else if (k.type === 'heart' && p.hp < p.maxHp) { p.hp = Math.min(p.maxHp, p.hp + 20); k.gone = true; sfx('pick'); floatText(p.x, p.y - 30, '+20', '#ff6b8a', 1, 16); }
     }
   }
@@ -1401,8 +1382,8 @@ function drawHUD() {
   if (wdh && wdh.icon) { ctx.save(); wdh.icon(378, 30, 0.55); ctx.restore(); }
   const lvw = G.wlv[G.weapon] || 0; for (let i = 0; i < lvw; i++) { ctx.fillStyle = wcol; ctx.beginPath(); ctx.arc(368 + i * 7, 49, 2, 0, TAU); ctx.fill(); }
   ctx.fillStyle = G.morph[G.weapon] ? RAR.morph.c : '#aaa'; ctx.font = `9px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(((wdh && wdh.short) || '').toUpperCase(), 378, 60);
-  // ereklyék a fal sávjában
-  G.relics.forEach((id, i) => { const r = RELICS[id]; if (!r) return; const x = 46 + (i % 24) * 20, y = 80 + Math.floor(i / 24) * 20; ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.arc(x, y, 9, 0, TAU); ctx.fill(); ctx.strokeStyle = r.col || RAR.relic.c; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = r.col || RAR.relic.c; ctx.font = `11px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(r.i || '✦', x, y + 4); });
+  // kísértések a fal sávjában
+  G.tempts.forEach((id, i) => { const t = TEMPTS[id]; if (!t) return; const c = RINGS[t.ri].col, x = 46 + i * 22, y = 80; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.beginPath(); ctx.arc(x, y, 10, 0, TAU); ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = c; ctx.font = `12px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(t.i, x, y + 4); });
   // gyűrű neve
   ctx.textAlign = 'center'; ctx.font = `700 20px ${SERIF}`; ctx.fillStyle = rg.col; ctx.fillText(G.hub ? 'PURGATÓRIUM' : `${ROMAN[G.ring]}. ${rg.name.toUpperCase()}${G.defeated.includes(G.ring) ? ' ✓' : ''}`, 560, 28);
   ctx.font = `12px ${SANS}`; ctx.fillStyle = '#9a8fa8';
@@ -1436,7 +1417,7 @@ function drawCards() {
     ctx.strokeStyle = col; ctx.lineWidth = h ? 3 : 2; ctx.strokeRect(4, 4, r.w - 8, r.h - 8);
     ctx.strokeStyle = hexA(col, 0.3); ctx.lineWidth = 1; ctx.strokeRect(10, 10, r.w - 20, r.h - 20);
     for (const [cx2, cy2] of [[10, 10], [r.w - 10, 10], [10, r.h - 10], [r.w - 10, r.h - 10]]) { ctx.fillStyle = col; ctx.save(); ctx.translate(cx2, cy2); ctx.rotate(Math.PI / 4); ctx.fillRect(-4, -4, 8, 8); ctx.restore(); }
-    const kindN = { bless: 'ÁLDÁS', weapon: 'FEGYVER', morph: 'ÁTALAKULÁS', relic: 'EREKLYE', heal: 'GYÓGYULÁS', fuse: 'EGYESÜLÉS' }[o.kind] || 'ÁLDÁS';
+    const kindN = { tempt: 'KÍSÉRTÉS', bless: 'ÁLDÁS', weapon: 'FEGYVER', morph: 'ÁTALAKULÁS', relic: 'EREKLYE', heal: 'GYÓGYULÁS', fuse: 'EGYESÜLÉS' }[o.kind] || 'ÁLDÁS';
     ctx.textAlign = 'center'; ctx.font = `bold 10px ${SANS}`; ctx.fillStyle = hexA(col, 0.9); ctx.fillText(kindN, r.w / 2, 30);
     const gr = ctx.createRadialGradient(r.w / 2, 92, 4, r.w / 2, 92, 66); gr.addColorStop(0, hexA(col, 0.55)); gr.addColorStop(1, hexA(col, 0));
     ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(r.w / 2, 92, 66, 0, TAU); ctx.fill();
@@ -1444,7 +1425,10 @@ function drawCards() {
     if (o.icon) { ctx.save(); o.icon(r.w / 2, 92, 1.3); ctx.restore(); }
     else { ctx.fillStyle = '#fff6d0'; ctx.font = `48px ${SANS}`; ctx.fillText(o.i || '✦', r.w / 2, 108); }
     ctx.font = `700 ${o.n.length > 18 ? 16 : 19}px ${SERIF}`; ctx.fillStyle = col; ctx.fillText(o.n, r.w / 2, 172);
-    ctx.font = `13px ${SANS}`; ctx.fillStyle = '#ddd'; wrapText(o.d || '', r.w / 2, 198, r.w - 36, 18);
+    if (o.d2) {   // kísértés: ami téged erősít — és ami a démonokat
+      ctx.font = `12px ${SANS}`; ctx.fillStyle = '#e8f0d0'; let y = wrapText('✚ ' + (o.d || ''), r.w / 2, 196, r.w - 32, 16);
+      ctx.fillStyle = '#ff8a8a'; wrapText('☠ ' + o.d2, r.w / 2, y + 22, r.w - 32, 16);
+    } else { ctx.font = `13px ${SANS}`; ctx.fillStyle = '#ddd'; wrapText(o.d || '', r.w / 2, 198, r.w - 36, 18); }
     if (o.kind === 'bless') { const own = G.blessings.filter(x => x === o.id).length; if (own) { ctx.fillStyle = '#9a8fa8'; ctx.font = `11px ${SANS}`; ctx.fillText(`Már birtokolt: ${own}×`, r.w / 2, r.h - 50); } }
     ctx.font = `bold 11px ${SANS}`; ctx.fillStyle = col; ctx.fillText(rr.n.toUpperCase(), r.w / 2, r.h - 32);
     ctx.fillStyle = '#776'; ctx.fillText(`[${i + 1}]`, r.w / 2, r.h - 16);
@@ -1455,12 +1439,14 @@ function wrapText(s, x, y, mw, lh) {
   const words = s.split(' '); let line = '';
   for (const w of words) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > mw && line) { ctx.fillText(line, x, y); y += lh; line = w; } else line = t; }
   if (line) ctx.fillText(line, x, y);
+  return y;
 }
 function drawChoice() {
   ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center'; ctx.font = `900 34px ${SERIF}`; ctx.fillStyle = '#ffe27a'; ctx.shadowColor = '#ffd75e'; ctx.shadowBlur = 20;
-  ctx.fillText(G.choice.title || ({ boss: 'A BŰN ELBUKOTT', shrine: 'EREKLYÉK OLTÁRA', story: 'A LÉLEK AJÁNDÉKA', morph: 'ÁTALAKULÁS' }[G.choice.src]) || 'ÉGI ÁLDÁS', CX, 120); ctx.shadowBlur = 0;
-  ctx.font = `16px ${SANS}`; ctx.fillStyle = '#ccc'; ctx.fillText(touch.on ? 'Érintsd meg, amelyiket választod' : 'Válassz (kattintás vagy 1 / 2 / 3)', CX, 155);
+  ctx.fillText(G.choice.title || ({ boss: 'A BŰN KÍSÉRTÉST HAGYOTT HÁTRA', shrine: 'EREKLYÉK OLTÁRA', story: 'A LÉLEK AJÁNDÉKA', morph: 'ÁTALAKULÁS' }[G.choice.src]) || 'ÉGI ÁLDÁS', CX, 120); ctx.shadowBlur = 0;
+  if (G.choice.src === 'boss') { ctx.font = `italic 14px Georgia,serif`; ctx.fillStyle = '#d8a0a0'; ctx.fillText('Ami téged megerősít, az a démonokat is megerősíti.', CX, 146); }
+  ctx.font = `15px ${SANS}`; ctx.fillStyle = '#ccc'; ctx.fillText(touch.on ? 'Érintsd meg, amelyiket választod' : 'Válassz (kattintás vagy 1 / 2 / 3)', CX, 168);
   drawCards();
 }
 function drawPause() {
@@ -1469,8 +1455,8 @@ function drawPause() {
   // irányítás
   ctx.textAlign = 'left'; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = '#ffe27a'; ctx.fillText('Irányítás', 50, 104);
   ctx.font = `12px ${SANS}`; ctx.fillStyle = '#cfc8dc';
-  const lines = touch.on ? ['Bal hüvelykujj — mozgás', 'Jobb hüvelykujj — támadás (tartva: feltöltés)', 'KITÉRÉS — sérthetetlen suhanás', 'NOVA — ha a Kegyelem megtelt', 'FEGYVER — közelharci ↔ távolsági', 'VÉTEL — boltban']
-    : ['WASD — mozgás', 'Egér / nyilak — támadás (tartva: feltöltés)', 'Space / Shift — kitérés', 'Q / jobb klikk — Szent Nova', 'X / Tab — fegyvercsere', 'E — vásárlás   •   F — teljes képernyő   •   M — hang'];
+  const lines = touch.on ? ['Bal hüvelykujj — mozgás', 'Jobb hüvelykujj — támadás (tartva: feltöltés)', 'KITÉRÉS — sérthetetlen suhanás', 'NOVA — ha a Kegyelem megtelt', 'FEGYVER — közelharci ↔ távolsági']
+    : ['WASD — mozgás', 'Egér / nyilak — támadás (tartva: feltöltés)', 'Space / Shift — kitérés', 'Q / jobb klikk — Szent Nova', 'X / Tab — fegyvercsere', 'F — teljes képernyő   •   M — hang'];
   lines.forEach((l, i) => ctx.fillText(l, 50, 126 + i * 19));
   // fegyverek
   ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = '#ffe27a'; ctx.fillText('Fegyvereid', 520, 104);
@@ -1484,19 +1470,16 @@ function drawPause() {
     ctx.font = `11px ${SANS}`; ctx.fillStyle = m ? RAR.morph.c : '#a9a2b8';
     ctx.fillText(`${'●'.repeat(lv)}${'○'.repeat(Math.max(0, 4 - lv))}  ${m ? 'Átalakult: ' + m.n : lv >= 3 ? 'Átalakulásra kész' : (k === 'melee' ? 'közelharci' : 'távolsági')}`, 568, y + 14);
   });
-  // ereklyék
-  ctx.textAlign = 'left'; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = RAR.relic.c; ctx.fillText(`Ereklyéid (${G.relics.length})`, 50, 262);
+  // kísértések
+  ctx.textAlign = 'left'; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = '#ff8a8a'; ctx.fillText(`Kísértéseid (${G.tempts.length})`, 50, 262);
   ctx.font = `12px ${SANS}`;
-  if (!G.relics.length) { ctx.fillStyle = '#888'; ctx.fillText('Még nincs ereklyéd. Az Ereklyék oltárán és a lelkektől kaphatsz.', 50, 284); }
-  G.relics.forEach((id, i) => { const r = RELICS[id]; if (!r) return; const col = i % 3, row = Math.floor(i / 3); ctx.fillStyle = r.col || RAR.relic.c; ctx.fillText(`${r.i || '✦'} ${r.n}`, 50 + col * 290, 284 + row * 18); });
-  // áldások
-  const by = 300 + Math.ceil(Math.max(1, G.relics.length) / 3) * 18;
-  ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = '#ffe27a'; ctx.fillText(`Áldásaid (${G.blessings.length})`, 50, by);
-  const cnt = {}; G.blessings.forEach(id => cnt[id] = (cnt[id] || 0) + 1);
-  const ids = Object.keys(cnt);
-  ctx.font = `12px ${SANS}`;
-  if (!ids.length) { ctx.fillStyle = '#888'; ctx.fillText('Még nincs áldásod.', 50, by + 22); }
-  ids.forEach((id, i) => { const b = BL.find(q => q.id === id); if (!b) return; const col = i % 3, row = Math.floor(i / 3); if (by + 22 + row * 17 > 560) return; ctx.fillStyle = (RAR[b.rar] || RAR.common).c; ctx.fillText(`${b.i} ${b.n}${cnt[id] > 1 ? ' ×' + cnt[id] : ''}`, 50 + col * 290, by + 22 + row * 17); });
+  if (!G.tempts.length) { ctx.fillStyle = '#888'; ctx.fillText('Még nincs. Minden legyőzött bűn kísértést hagy maga után: erősít téged, de a démonokat is.', 50, 284); }
+  G.tempts.forEach((id, i) => {
+    const t = TEMPTS[id]; if (!t) return; const x = 50 + (i % 2) * 440, y = 286 + Math.floor(i / 2) * 92;
+    ctx.font = `700 13px ${SERIF}`; ctx.fillStyle = RINGS[t.ri].col; ctx.fillText(`${t.i} ${t.n}`, x, y);
+    ctx.font = `11px ${SANS}`; ctx.fillStyle = '#d8e8c8'; const y2 = wrapText('✚ ' + t.d, x, y + 17, 420, 14);
+    ctx.fillStyle = '#ff9a9a'; wrapText('☠ ' + t.d2, x, y2 + 15, 420, 14);
+  });
   // gombok
   ctx.textAlign = 'center';
   ctx.globalAlpha = 0.6 + Math.sin(gt * 3) * 0.3; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = '#fff';
@@ -1554,8 +1537,8 @@ function drawTitle() {
   ctx.globalAlpha = 0.6 + Math.sin(gt * 3) * 0.4; ctx.font = `700 20px ${SERIF}`; ctx.fillStyle = '#fff';
   ctx.fillText(touch.on ? 'Érintsd meg a kezdéshez' : 'Kattints vagy nyomj ENTER-t a kezdéshez', CX, 450); ctx.globalAlpha = 1;
   ctx.font = `13px ${SANS}`; ctx.fillStyle = '#b8a8a0';
-  ctx.fillText(touch.on ? 'Bal hüvelykujj: mozgás  •  Jobb hüvelykujj: célzás és lövés (érintés = automatikus célzás)  •  Gombok: kitérés, Nova, vétel'
-    : 'WASD mozgás  •  Egér / nyilak támadás  •  Space kitérés  •  Q Szent Nova  •  X fegyvercsere  •  E vásárlás  •  Esc szünet  •  F teljes képernyő', CX, 500);
+  ctx.fillText(touch.on ? 'Bal hüvelykujj: mozgás  •  Jobb hüvelykujj: célzás és lövés (érintés = automatikus célzás)  •  Gombok: kitérés, Nova, fegyver'
+    : 'WASD mozgás  •  Egér / nyilak támadás  •  Space kitérés  •  Q Szent Nova  •  X fegyvercsere  •  Esc szünet  •  F teljes képernyő', CX, 500);
   ctx.fillStyle = '#7a6a70';
   ctx.fillText(`Legtöbb legyőzött bűn: ${Math.min(7, best.ring)} / 7   •   Győzelmek: ${best.wins}`, CX, 530);
 }
@@ -1749,7 +1732,8 @@ function buildWorld() {
     const st = rooms.find(r => r.type === 'start') || rooms[0], depth = {}, q = st ? [st] : [];
     if (st) depth[key(st)] = 0;
     while (q.length) { const r = q.shift(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nb = byK[(r.x + dx) + ',' + (r.y + dy)]; if (nb && depth[key(nb)] === undefined) { depth[key(nb)] = depth[key(r)] + 1; q.push(nb); } } }
-    const ordered = rooms.slice().sort((a, b) => (a.type === 'boss') - (b.type === 'boss') || (depth[key(a)] || 0) - (depth[key(b)] || 0));
+    // bolt, Égi Oltár és ereklyeoltár nincs: erősítést csak a bűnök hagynak maguk után
+    const ordered = rooms.filter(r => r.type !== 'shop' && r.type !== 'treasure' && r.type !== 'shrine').sort((a, b) => (a.type === 'boss') - (b.type === 'boss') || (depth[key(a)] || 0) - (depth[key(b)] || 0));
     // jelölt pontok a táj belsejében, a Purgatóriumtól mért távolsággal
     const cands = [];
     for (let y = 4; y < MH - 4; y++) for (let x = 4; x < MW - 4; x++) {
@@ -1804,8 +1788,18 @@ function buildWorld() {
       W0.sites.push({ type, ri, x: (best.x + 0.5) * TS, y: (best.y + 0.5) * TS, v: k, title: type === 'ruin' ? RUIN_NAMES[ri][k % RUIN_NAMES[ri].length] : type === 'lair' ? LAIR_NAMES[ri][k % LAIR_NAMES[ri].length] : '' });
     }
   }
-  // a Kevélység tája csak a kapun át érhető el: a határát utólag is lezárjuk
-  for (let i = 0; i < MW * MH; i++) if ((RG8[i] === 6) !== (RG2[i] === 6) && RG8[i] !== 7 && BF[i] > 0.27 && Kt[i] !== K_ABYSS) Kt[i] = K_ROCK;
+  // a bűnök tájai nem nyílnak egymásba: minden határt utólag is kőfallal zárunk le, csak a saját kapujukon át érhetők el
+  for (let i = 0; i < MW * MH; i++) if (RG8[i] !== RG2[i] && RG8[i] !== 7 && BF[i] > 0.27 && Kt[i] !== K_ABYSS) Kt[i] = K_ROCK;
+  for (let y = 3; y < MH - 4; y++) for (let x = 3; x < MW - 4; x++) {
+    const i = y * MW + x, a = RG8[i]; if (a === 7) continue;
+    for (const j of [i + 1, i + MW]) { const b = RG8[j]; if (b === 7 || b === a) continue; if (Kt[i] !== K_ABYSS) Kt[i] = K_ROCK; if (Kt[j] !== K_ABYSS) Kt[j] = K_ROCK; }
+  }
+  // a kapuk túloldala: ahol a hágó átlép a bűn tájára (itt zárul be a kapu a belépő mögött)
+  for (let ri = 0; ri < 7; ri++) {
+    const ps = W0.passes[ri]; let q = null;
+    for (let d = PURG_R - 1; d < PURG_R + 6 && !q; d += 0.25) { const x = C.tx + ps.u.x * d, y = C.ty + ps.u.y * d; if (RG8[Math.round(y) * MW + Math.round(x)] === ri) q = { x, y }; }
+    ps.seal = q || { x: C.tx + ps.u.x * (PURG_R + 1), y: C.ty + ps.u.y * (PURG_R + 1) };
+  }
   // a Kevélység kapuja: lezárt kőfal a hágóban
   const pp = W0.passes[6];
   for (let k = -2.5; k <= 2.5; k += 0.5) { const x = Math.round(pp.gate.x + -pp.u.y * k), y = Math.round(pp.gate.y + pp.u.x * k); for (const yy of [y - 1, y, y + 1]) { const i = yy * MW + x; if (Kt[i] !== K_ABYSS) { Kt[i] = K_GATE; W0.gateTiles.push(i); } } }
@@ -1942,16 +1936,34 @@ function regionEnter(ri) {
   G.curReg = ri; G.hub = ri === 7; G.room = G.regionObjs[ri]; G.lvl = G.defeated.length;
   if (ri === 7) { emit('hubEnter', null); return; }
   G.ring = ri;
+  if (!G.defeated.includes(ri)) sealGate(ri);
   const first = !G.seenReg[ri]; G.seenReg[ri] = true;
   if (first) { ringBanner(); sfx('holy'); emit('ringEnter', ri); const lv = LEVELS[ri]; if (lv && lv.intro) startTalk(lv.intro); }
   else G.banner = { title: RINGS[ri].name.toUpperCase(), sub: G.defeated.includes(ri) ? 'Megtisztítva' : RINGS[ri].latin, line: '', t: 0, dur: 2.2, col: RINGS[ri].col };
+}
+// ha belépsz egy kapun, mögötted bezárul: csak a bűn halála után jöhetsz ki
+function sealGate(ri) {
+  if (G.sealed === ri) return;
+  G.sealed = ri; G.sealPos = { x: G.p.x, y: G.p.y }; G.sealT = 0;
+  const q = WORLD.passes[ri].seal, x = (q.x + 0.5) * TS, y = (q.y + 0.5) * TS;
+  vfx.ring(x, y, 10, 160, RINGS[ri].col, 0.7, 8); vfx.shake(6); sfx('door');
+  later0(G.seenReg[ri] ? 0.1 : 5.6, () => { if (G.sealed === ri) G.banner = { small: true, title: 'A KAPU BEZÁRULT MÖGÖTTED', sub: `Csak ${BOSSES[ri].name} halála nyitja meg`, line: '', t: 0, dur: 2.8, col: RINGS[ri].col }; });
+}
+function later0(t, fn) { addFx({ upd(dt) { t -= dt; if (t <= 0) { fn(); return false; } return true; } }); }
+function sealUpdate(dt) {
+  const p = G.p, ri = G.sealed;
+  if (ri === undefined || ri === null) return;
+  if (G.defeated.includes(ri)) { G.sealed = null; return; }
+  if (regionAt(p.x, p.y) === ri) { G.sealPos = { x: p.x, y: p.y }; return; }
+  p.x = G.sealPos.x; p.y = G.sealPos.y; p.vx = 0; p.vy = 0;
+  if ((G.sealT -= dt) <= 0) { G.sealT = 1.6; sfx('block'); floatText(p.x, p.y - 44, `A kapu zárva — győzd le ${BOSSES[ri].name}-t`, RINGS[ri].col, 1.4, 14); }
 }
 // teszteléshez / visszatéréshez: a régió bejáratához ugrik
 function enterRing(ri) {
   const ps = WORLD.passes[ri]; if (!ps) return;
   if (ri === 6) unlockPrideGate(true);
   G.p.x = (ps.entry.x + 0.5) * TS; G.p.y = (ps.entry.y + 0.5) * TS; const f = findFree(G.p.x, G.p.y); G.p.x = f.x; G.p.y = f.y;
-  updateCamera(0, true); regionEnter(ri);
+  G.sealed = null; updateCamera(0, true); regionEnter(ri);
 }
 function unlockPrideGate(silent) {
   if (!WORLD.gateTiles.length || WORLD.K[WORLD.gateTiles[0]] !== K_GATE) return;
@@ -1963,6 +1975,7 @@ function unlockPrideGate(silent) {
 function nextRing() {
   const ri = G.ring;
   if (!G.defeated.includes(ri)) G.defeated.push(ri);
+  G.sealed = null;
   G.p.hp = Math.min(G.p.maxHp, G.p.hp + 25);
   G.enemies.length = 0; G.bullets.length = 0; G.hazards.length = 0; G.beams.length = 0; G.fx.length = 0; G.arena = null; G.p.arena = null; G.portal = null;
   const ps = WORLD.passes[ri], C = WORLD.C;
@@ -1992,7 +2005,7 @@ function spawnSites() {
       for (let k = 0; k < n; k++) { const f = findFree(st.x + Math.cos(k * 1.7) * 70, st.y + Math.sin(k * 1.7) * 60); const e = mkEnemy(k === 0 && st.v % 3 === 2 ? 'brute' : choice(types), f.x, f.y, st.ri); e.spawn = 0; e.lair = st; e.home = { x: st.x, y: st.y }; G.enemies.push(e); }
     } else if (st.type === 'rescue') {
       const types = RINGS[st.ri].enemies;
-      const enc = { type: 'normal', kind: 'soul', x: st.x, y: st.y, ri: st.ri, title: 'Bajba jutott lélek', fixed: true, npc: { name: 'Elveszett lélek', look: 'soul', talk: choice(LOST_LINES).map(t => ({ who: 'Elveszett lélek', text: t, col: '#9fd0dc' })), reward: 'treasure' } };
+      const enc = { type: 'normal', kind: 'soul', x: st.x, y: st.y, ri: st.ri, title: 'Bajba jutott lélek', fixed: true, npc: { name: 'Elveszett lélek', look: 'soul', talk: choice(LOST_LINES).map(t => ({ who: 'Elveszett lélek', text: t, col: '#9fd0dc' })) } };
       for (let k = 0; k < 4; k++) { const f = findFree(st.x + Math.cos(k * 1.6) * 95, st.y + Math.sin(k * 1.6) * 85); const e = mkEnemy(choice(types), f.x, f.y, st.ri); e.spawn = 0; e.enc = enc; e.guard = true; G.enemies.push(e); }
       G.encs.push(enc);
     } else if (st.type === 'cache') G.encs.push({ type: 'cache', kind: 'cache', x: st.x, y: st.y, ri: st.ri, taken: false, cursed: st.v % 2 === 1, fixed: true });
@@ -2032,6 +2045,8 @@ function endEncounter(enc) {
   if (Math.random() < 0.35) dropPickup('heart', enc.x, enc.y);
   if (G.room === enc) G.room = G.regionObjs[G.curReg];
 }
+// a megmentett lelkek és a ládák csak lelket és életerőt adnak – erősítést nem
+function soulGift(x, y, n) { for (let i = 0; i < n; i++) dropPickup('soul', x, y); dropPickup('heart', x, y); }
 const LOST_LINES = [
   ['Köszönöm, fénylő idegen… már azt hittem, örökre itt maradok.', 'Vedd ezt. Nekem már úgysincs szükségem rá.'],
   ['Láttam, ahogy jöttél. Mint egy hajnal, ami eltévedt idelent.', 'Fogadd el ezt a keveset, amit megőriztem.'],
@@ -2071,6 +2086,8 @@ function director(dt) {
 function worldUpdate(dt) {
   const p = G.p;
   G.lvl = G.defeated.length;
+  // lezárt kapu: amíg a bűn él, nem hagyhatod el a tájat
+  sealUpdate(dt);
   // régióváltás
   const reg = regionAt(p.x, p.y);
   if (reg !== G.curReg && !G.dying) regionEnter(reg);
@@ -2094,7 +2111,7 @@ function worldUpdate(dt) {
   // helyszínek
   for (const o of G.pois) {
     const d = Math.hypot(p.x - o.x, p.y - o.y);
-    if (!o.found && d < 460) { o.found = true; if (o.title && o.type !== 'start') G.banner = { small: true, title: o.title, sub: { camp: 'Helyszín', treasure: 'Égi Oltár', shop: 'A Bűnbánó Kalmár', shrine: 'Ereklyék oltára', boss: BOSSES[o.ri].title }[o.type] || '', line: '', t: 0, dur: 2.4, col: RINGS[o.ri].col }; }
+    if (!o.found && d < 460) { o.found = true; if (o.title && o.type !== 'start') G.banner = { small: true, title: o.title, sub: { camp: 'Helyszín', boss: BOSSES[o.ri].title }[o.type] || '', line: '', t: 0, dur: 2.4, col: RINGS[o.ri].col }; }
     if (o.type === 'camp') {
       if (!o.cleared && !o.active && d < 380 && !G.arena) {
         o.active = true; o.waveI = 0; startEncounter(o);
@@ -2106,12 +2123,7 @@ function worldUpdate(dt) {
           if (o.waveI < o.waves.length - 1) { o.waveI++; campSpawn(o); } else endEncounter(o);
         }
       }
-      if (o.cleared && o.npc && !o.talked && d < 90) { o.talked = true; const npc = o.npc; startTalk(npc.talk, () => { if (npc.reward) openChoice(npc.reward); emit('talkEnd', o); }); }
-    } else if (o.type === 'treasure' || o.type === 'shrine') {
-      if (!o.taken && d < 36) { o.taken = true; openChoice(o.type); }
-    } else if (o.type === 'shop') {
-      if (!o.items) { const opts = UPG.offers ? UPG.offers('shop', 3) : pickBlessings(3).map(blessOffer); o.items = opts.map((q, i) => ({ offer: q, x: o.x - 105 + i * 70, y: o.y + 66, price: (q.price || 15) + G.lvl * 4 })); o.items.push({ heal: true, x: o.x + 105, y: o.y + 66, price: 8 + G.lvl * 2 }); }
-      if (d < 260 && !o.entered) { o.entered = true; emit('roomEnter', o); }
+      if (o.cleared && o.npc && !o.talked && d < 90) { o.talked = true; const npc = o.npc; startTalk(npc.talk, () => { soulGift(o.x, o.y + 30, 5); emit('talkEnd', o); }); }
     } else if (o.type === 'boss') {
       const done = G.defeated.includes(o.ri);
       if (!done && !G.arena && d < 7 * TS && !G.dying) startBossArena(o);
@@ -2124,7 +2136,7 @@ function worldUpdate(dt) {
     if (enc.kind === 'soul') {
       if (!enc.active && d < 360) { enc.active = true; startEncounter(enc); for (const e of encEnemies(enc)) e.aggro = true; }
       if (enc.active && encEnemies(enc).length === 0) { endEncounter(enc); enc.done = true; }
-      if (enc.done && !enc.talked && d < 90) { enc.talked = true; startTalk(enc.npc.talk, () => { if (enc.npc.reward) openChoice(enc.npc.reward); else { for (let i = 0; i < 6; i++) dropPickup('soul', enc.x, enc.y); dropPickup('heart', enc.x, enc.y); } }); }
+      if (enc.done && !enc.talked && d < 90) { enc.talked = true; startTalk(enc.npc.talk, () => soulGift(enc.x, enc.y, 6)); }
       if (d > 1800 && !enc.fixed) enc.cleared = true;
     } else if (enc.kind === 'ruin') {
       if (!enc.found && d < 420) { enc.found = true; G.banner = { small: true, title: enc.title, sub: 'Látványosság', line: '', t: 0, dur: 2.6, col: RINGS[enc.ri].col }; }
@@ -2136,7 +2148,7 @@ function worldUpdate(dt) {
         enc.taken = true;
         if (enc.cursed) {
           floatText(enc.x, enc.y - 40, 'ÁTKOZOTT!', '#ff5a5a', 1.6, 18); sfx('roar'); vfx.shake(8);
-          const sub = { type: 'normal', kind: 'ambush', x: enc.x, y: enc.y, ri: enc.ri, onClear: () => openChoice('treasure') };
+          const sub = { type: 'normal', kind: 'ambush', x: enc.x, y: enc.y, ri: enc.ri, onClear: () => soulGift(enc.x, enc.y, 8) };
           const types = RINGS[enc.ri].enemies;
           for (let k = 0; k < 3; k++) { const f = findFree(enc.x + Math.cos(k * 2.1) * 120, enc.y + Math.sin(k * 2.1) * 120); const e = mkEnemy(k ? choice(types) : 'brute', f.x, f.y, enc.ri); e.enc = sub; e.aggro = true; if (!k) { e.elite = true; e.hp *= 1.6; e.maxHp = e.hp; } G.enemies.push(e); }
           G.encs.push(sub); startEncounter(sub);
@@ -2152,7 +2164,7 @@ function worldUpdate(dt) {
   for (const e of G.enemies) if (!e.boss && !e.enc && !e.lair && !e.aggro && Math.hypot(e.x - p.x, e.y - p.y) > 2600) e.dead = true;
   director(dt);
   // főellenség-aréna, portál
-  if (G.afterBoss > 0) { G.afterBoss -= dt; if (G.afterBoss <= 0) openChoice('boss', () => { G.portal = { x: G.arenaPoi.x, y: G.arenaPoi.y, t: 0 }; G.arena = null; G.p.arena = null; sfx('holy'); }); }
+  if (G.afterBoss > 0) { G.afterBoss -= dt; if (G.afterBoss <= 0) openChoice('boss', () => (UPG.afterSin || (f => f()))(() => { G.portal = { x: G.arenaPoi.x, y: G.arenaPoi.y, t: 0 }; G.arena = null; G.p.arena = null; sfx('holy'); })); }
   if (G.winT > 0) { G.winT -= dt; if (G.winT <= 0) { saveBest(true); startTalk(LEVELS.epilogue, () => { state = 'win'; gt = 0; }); } }
   if (G.portal) { G.portal.t += dt; if (dist(G.portal, p) < 34 && G.portal.t > 0.6 && !G.dying) nextRing(); }
   // felszedhető tárgyak: egy perc után elhalványulnak
@@ -2181,7 +2193,7 @@ function buildMinimap() {
   }
   g.putImageData(img, 0, 0);
 }
-const POI_ICON = { camp: ['⚔', '#ff8a6a'], treasure: ['✦', '#ffd75e'], shop: ['◈', '#6fd8ff'], shrine: ['✠', '#5cf0a0'], boss: ['☠', '#ff3348'], start: ['▲', '#e8dcc8'] };
+const POI_ICON = { camp: ['⚔', '#ff8a6a'], boss: ['☠', '#ff3348'], start: ['▲', '#e8dcc8'] };
 function drawMinimap(x0, y0, w, h, sc, full) {
   const p = G.p, ptx = p.x / TS, pty = p.y / TS;
   let sx = full ? 0 : ptx - w / sc / 2, sy = full ? 0 : pty - h / sc / 2;
@@ -2196,7 +2208,7 @@ function drawMinimap(x0, y0, w, h, sc, full) {
   ctx.textAlign = 'center';
   for (const o of G.pois) {
     if (!o.found) continue; const [x, y] = toS(o.x / TS, o.y / TS), ic = POI_ICON[o.type]; if (!ic) continue;
-    const done = (o.type === 'camp' && o.cleared) || ((o.type === 'treasure' || o.type === 'shrine') && o.taken) || (o.type === 'boss' && G.defeated.includes(o.ri));
+    const done = (o.type === 'camp' && o.cleared) || (o.type === 'boss' && G.defeated.includes(o.ri));
     ctx.font = `bold ${full ? 13 : 9}px ${SANS}`; ctx.fillStyle = done ? '#6a6470' : ic[1]; ctx.fillText(ic[0], x, y + (full ? 5 : 3));
   }
   if (full) for (const r of REGIONS) { if (r.ri !== 7 && !G.seenReg[r.ri]) continue; const [x, y] = toS(r.tx, r.ty); ctx.font = `700 14px ${SERIF}`; ctx.fillStyle = hexA(r.ri === 7 ? PURG.col : RINGS[r.ri].col, 0.9); ctx.fillText(r.ri === 7 ? 'Purgatórium' : `${ROMAN[r.ri]}. ${RINGS[r.ri].name}`, x, y - 30); }
@@ -2211,7 +2223,7 @@ function drawWorldMap() {
   drawMinimap(x0, y0, w, h, sc, true);
   ctx.strokeStyle = 'rgba(255,215,94,0.5)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0 - 0.5, y0 - 0.5, w + 1, h + 1);
   ctx.font = `12px ${SANS}`; ctx.fillStyle = '#bbb';
-  ctx.fillText('⚔ helyszín   ✦ Égi Oltár   ◈ kalmár   ✠ ereklyeoltár   ☠ a bűn démona     •     ' + (touch.on ? 'érintés: vissza' : 'N / Esc: vissza'), CX, H - 14);
+  ctx.fillText('⚔ helyszín   ☠ a bűn démona (csak ő hagy kísértést)     •     ' + (touch.on ? 'érintés: vissza' : 'N / Esc: vissza'), CX, H - 14);
 }
 
 // ---------- terep-darabok (chunk) előrajzolása ----------
@@ -2406,38 +2418,6 @@ function drawPoi(o) {
     ctx.fillStyle = '#54586a'; ctx.beginPath(); ctx.moveTo(o.x - 12, o.y + 2); ctx.lineTo(o.x - 8, o.y - 64); ctx.lineTo(o.x, o.y - 74); ctx.lineTo(o.x + 8, o.y - 64); ctx.lineTo(o.x + 12, o.y + 2); ctx.fill();
     ctx.fillStyle = '#7a7f92'; ctx.beginPath(); ctx.moveTo(o.x - 8, o.y - 64); ctx.lineTo(o.x, o.y - 74); ctx.lineTo(o.x, o.y + 2); ctx.lineTo(o.x - 12, o.y + 2); ctx.fill();
     ctx.textAlign = 'center'; ctx.font = `700 13px ${SERIF}`; ctx.fillStyle = col; ctx.fillText(ROMAN[o.ri], o.x, o.y - 34);
-  } else if (o.type === 'treasure' || o.type === 'shrine') {
-    const gold = o.type === 'treasure', c1 = gold ? '#d9b45a' : '#5cc89a';
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 18, 40, 12, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#4a4d5c'; ctx.fillRect(o.x - 34, o.y + 2, 68, 16); ctx.fillStyle = '#6e7284'; ctx.fillRect(o.x - 30, o.y - 4, 60, 8);
-    ctx.fillStyle = '#8a8fa2'; ctx.fillRect(o.x - 22, o.y - 30, 44, 28); ctx.fillStyle = '#5a5e70'; ctx.fillRect(o.x - 22, o.y - 30, 44, 4);
-    if (!o.taken) { const y = o.y - 46 + Math.sin(t * 2) * 3; ctx.fillStyle = c1; ctx.font = `26px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(gold ? '✦' : '✠', o.x, y); ctx.font = `12px ${SANS}`; ctx.fillStyle = '#e8e2d0'; ctx.fillText(gold ? 'Égi Oltár — lépj elé' : 'Ereklyék oltára — lépj elé', o.x, o.y + 40); }
-  } else if (o.type === 'shop') {
-    // Menedék: cölöpkerítés, lámpások, szőnyeg, pult, ponyvasátor
-    ctx.fillStyle = 'rgba(70,52,40,0.55)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 40, 150, 70, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#5a1e1a'; ctx.fillRect(o.x - 70, o.y + 30, 140, 50); ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 2; ctx.strokeRect(o.x - 66, o.y + 34, 132, 42);
-    for (let k = 0; k < 22; k++) { const a = Math.PI * 0.62 + k / 21 * Math.PI * 1.76, x = o.x + Math.cos(a) * 185, y = o.y + 30 + Math.sin(a) * 105; ctx.fillStyle = '#2e2016'; ctx.fillRect(x - 3, y - 26, 6, 28); ctx.fillStyle = '#4a3420'; ctx.beginPath(); ctx.moveTo(x - 3, y - 26); ctx.lineTo(x, y - 33); ctx.lineTo(x + 3, y - 26); ctx.fill(); if (k % 7 === 3) { ctx.fillStyle = '#d8a050'; ctx.beginPath(); ctx.arc(x, y - 36, 4, 0, TAU); ctx.fill(); } }
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(o.x, o.y + 22, 80, 16, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#3e2a22'; ctx.beginPath(); ctx.moveTo(o.x - 74, o.y + 20); ctx.lineTo(o.x, o.y - 62); ctx.lineTo(o.x + 74, o.y + 20); ctx.fill();
-    ctx.fillStyle = '#5e4232'; ctx.beginPath(); ctx.moveTo(o.x - 74, o.y + 20); ctx.lineTo(o.x, o.y - 62); ctx.lineTo(o.x, o.y + 20); ctx.fill();
-    ctx.strokeStyle = '#2a1a12'; ctx.lineWidth = 1; for (let k = -3; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(o.x, o.y - 62); ctx.lineTo(o.x + k * 22, o.y + 20); ctx.stroke(); }
-    ctx.fillStyle = '#140c0a'; ctx.beginPath(); ctx.moveTo(o.x - 18, o.y + 20); ctx.lineTo(o.x, o.y - 18); ctx.lineTo(o.x + 18, o.y + 20); ctx.fill();
-    ctx.fillStyle = '#4a3020'; ctx.fillRect(o.x - 130, o.y + 74, 260, 10); ctx.fillStyle = '#2e1e14'; ctx.fillRect(o.x - 126, o.y + 84, 6, 14); ctx.fillRect(o.x + 120, o.y + 84, 6, 14);
-    drawNpc({ x: o.x, y: o.y + 6, name: 'A Bűnbánó Kalmár', look: 'soul' }, true);
-    if (o.items) for (const it of o.items) {
-      ctx.fillStyle = '#2a2430'; ctx.fillRect(it.x - 18, it.y + 6, 36, 10);
-      if (it.sold) continue;
-      const y = it.y - 10 + Math.sin(t * 2 + it.x) * 2;
-      if (!it.heal && it.offer.icon) { ctx.save(); it.offer.icon(it.x, y, 0.7); ctx.restore(); }
-      else { ctx.font = `22px ${SANS}`; ctx.textAlign = 'center'; ctx.fillStyle = it.heal ? '#ff5b7a' : (it.offer.col || (RAR[it.offer.rar] || RAR.common).c); ctx.fillText(it.heal ? '♥' : it.offer.i, it.x, y + 8); }
-      ctx.font = `bold 12px ${SANS}`; ctx.textAlign = 'center'; ctx.fillStyle = G.souls >= it.price ? '#8fe8ff' : '#ff7a7a'; ctx.fillText('◈ ' + it.price, it.x, it.y + 32);
-      if (dist(it, G.p) < 40) {
-        const nm = it.heal ? 'Gyógyító Kegyelem' : it.offer.n, ds = it.heal ? '+40 életerő' : it.offer.d;
-        ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(it.x - 150, it.y - 92, 300, 54);
-        ctx.fillStyle = '#ffe27a'; ctx.font = `bold 14px ${SANS}`; ctx.fillText(nm + (touch.on ? '' : '  [E]'), it.x, it.y - 72);
-        ctx.fillStyle = '#ddd'; ctx.font = `12px ${SANS}`; ctx.fillText(ds.length > 52 ? ds.slice(0, 50) + '…' : ds, it.x, it.y - 52);
-      }
-    }
   } else if (o.type === 'boss') {
     const done = G.defeated.includes(o.ri), r0 = 8.4 * TS;
     ctx.strokeStyle = hexA(col, done ? 0.12 : 0.28); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(o.x, o.y, r0 - 20, 0, TAU); ctx.stroke();
@@ -2471,6 +2451,23 @@ function drawGates() {
     if (Math.abs(x - G.p.x) > 900 || Math.abs(y - G.p.y) > 700) continue;
     drawGate({ ri, x, y: y - 10 });
   }
+  drawSeal();
+}
+// a bezárult kapu: izzó rácsok a hágóban, a bűn táján belül
+function drawSeal() {
+  const ri = G.sealed; if (ri === undefined || ri === null) return;
+  const ps = WORLD.passes[ri], x = (ps.seal.x + 0.5) * TS, y = (ps.seal.y + 0.5) * TS, col = RINGS[ri].col;
+  if (Math.abs(x - G.p.x) > 900 || Math.abs(y - G.p.y) > 700) return;
+  const px = -ps.u.y, py = ps.u.x, half = 2.6 * TS, t = gt;
+  ctx.save(); ctx.lineCap = 'round';
+  ctx.strokeStyle = hexA(col, 0.35); ctx.lineWidth = 16; ctx.beginPath(); ctx.moveTo(x - px * half, y - py * half); ctx.lineTo(x + px * half, y + py * half); ctx.stroke();
+  for (let k = -5; k <= 5; k++) {
+    const bx = x + px * k * half / 5.5, by = y + py * k * half / 5.5;
+    ctx.strokeStyle = '#2a2230'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(bx, by + 10); ctx.lineTo(bx, by - 52); ctx.stroke();
+    ctx.strokeStyle = hexA(col, 0.75 + Math.sin(t * 4 + k) * 0.2); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(bx, by + 8); ctx.lineTo(bx, by - 50); ctx.stroke();
+  }
+  ctx.fillStyle = col; ctx.font = `700 13px ${SERIF}`; ctx.textAlign = 'center'; ctx.fillText('LEZÁRVA', x, y - 64);
+  ctx.restore();
 }
 function drawGate(g) {
   const ri = g.ri, rg = RINGS[ri], big = ri === 6, done = G.defeated.includes(ri), locked = big && WORLD.K[WORLD.gateTiles[0]] === K_GATE;
@@ -2639,9 +2636,11 @@ const BOSS_MOVES = {
 // ---------- létrehozás ----------
 function mkEnemy(type, x, y, ri) {
   const d = ET[type], lv = G.lvl, m = 1.4 + 0.5 * lv, hp = d.hp * m;
-  return { type, x, y, r: d.r, hp, maxHp: hp, poise: hp * 0.4, poiseMax: hp * 0.4, poiseT: 0, broken: 0, z: 0, spd: d.spd * (1.06 + 0.04 * lv), t: rand(0, 2), st: 0, stT: rand(0.8, 2),
+  const e = { type, x, y, r: d.r, hp, maxHp: hp, poise: hp * 0.4, poiseMax: hp * 0.4, poiseT: 0, broken: 0, z: 0, spd: d.spd * (1.06 + 0.04 * lv), t: rand(0, 2), st: 0, stT: rand(0.8, 2),
     flash: 0, spawn: 0.6, burn: 0, orbCd: 0, alpha: 1, ghost: false, side: Math.random() < 0.5 ? 1 : -1, spin: rand(0, TAU), shT: 0, boss: false, dead: false,
     ri: ri !== undefined ? ri : (G.hub ? 7 : G.ring), home: { x, y }, aggro: false, cds: {}, act: null, think: rand(0, 0.4), sideT: rand(1, 3), wander: null, face: rand(0, TAU), dodgeCd: 0 };
+  emit('spawn', e);
+  return e;
 }
 function spawnBoss(x, y) {
   const ri = G.ring, bd = BOSSES[ri], bhp = bd.key === 'lucifer' ? bd.hp : BOSS_HP[Math.min(5, G.lvl)];
@@ -2649,6 +2648,7 @@ function spawnBoss(x, y) {
   const b = mkEnemy('imp', f.x, f.y, ri);
   Object.assign(b, { type: 'boss', key: bd.key, bd, boss: true, r: bd.r, hp: bhp * 2.6, maxHp: bhp * 2.6, poise: bhp * 0.22, poiseMax: bhp * 0.22, armor: 0.15, age: 0, spd: bd.spd * 1.15, spawn: 0, intro: 2.2, aggro: true,
     phase: 1, sm: 1 + G.lvl * 0.04, inv: 0, trail: [], atk: null, home: { x, y } });
+  emit('spawn', b);   // a kísértések a főellenséget is megerősítik
   G.enemies.push(b); G.boss = b; G.bossAlive = true;
   G.banner = { title: bd.name, sub: bd.title, line: bd.line, t: 0, dur: 3.4, col: RINGS[ri].col };
   sfx('roar'); G.shake = 10;
@@ -2709,7 +2709,7 @@ function updEnemy(e, dt) {
   if (e.spawn > 0) { e.spawn -= dt; return; }
   if (e.kbx || e.kby) { e.x += e.kbx * dt; e.y += e.kby * dt; const f = Math.pow(0.002, dt); e.kbx *= f; e.kby *= f; if (Math.abs(e.kbx) + Math.abs(e.kby) < 8) e.kbx = e.kby = 0; }
   if (e.slowT > 0) e.slowT -= dt;
-  for (const k in e.cds) if (e.cds[k] > 0) e.cds[k] -= dt * (e.boss && e.phase > 1 ? 1.25 : 1);
+  for (const k in e.cds) if (e.cds[k] > 0) e.cds[k] -= dt * (e.boss && e.phase > 1 ? 1.25 : 1) * (e.atkMul || 1);
   if (!e.boss && G.ring === 4 && !G.hub && !e.rage && e.hp < e.maxHp * 0.5 && e.ri === 4) { e.rage = true; e.spd *= 1.4; floatText(e.x, e.y - e.r - 12, 'DÜH!', '#ff4a24', 0.8, 14); }
   const d = dist(e, p);
   e.hitWall = false;
@@ -2756,11 +2756,6 @@ function think(e, dt, d) {
   // ne torlódjanak egymásra
   for (const o of G.enemies) { if (o === e || o.dead || o.boss) continue; const dx = e.x - o.x, dy = e.y - o.y, dd = dx * dx + dy * dy; if (dd < 3600 && dd > 1) { a = Math.atan2(Math.sin(a) + dy / Math.sqrt(dd) * 0.6, Math.cos(a) + dx / Math.sqrt(dd) * 0.6); } }
   e.x += Math.cos(a) * s * dt; e.y += Math.sin(a) * s * dt; e.moving = s;
-  keepOutOfSanctuary(e);
-}
-// a menedékbe (kalmár) démon nem léphet
-function keepOutOfSanctuary(e) {
-  for (const o of G.pois) { if (o.type !== 'shop') continue; const dx = e.x - o.x, dy = e.y - o.y - 30, d = Math.hypot(dx / 1.75, dy); if (d < 110) { const k = 110 / Math.max(1, d); e.x = o.x + dx * k; e.y = o.y + 30 + dy * k; } }
 }
 function wander(e, dt, sp) {
   if (EDEF[e.type] && EDEF[e.type].still) return;
@@ -2938,7 +2933,8 @@ function actTick(e, A, m, dt) {
     if (A.shots > 0 && A.next <= 0) {
       A.shots--; A.next = 0.16; const a0 = angTo(e, p);
       const col = m.col || RINGS[e.ri].col;
-      for (let i = 0; i < m.n; i++) { const a = m.ring ? a0 + i * TAU / m.n + A.n * (m.twist || 0) : a0 + (m.n > 1 ? (i - (m.n - 1) / 2) * m.spread : rand(-m.spread, m.spread)); eBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a, m.spd * (e.sm || 1), { r: m.br, dmg: dmg * 0.9, col, homing: m.homing, life: m.life || 3.5, bounce: m.bounce, pierceP: m.pierce, big: m.br > 14 }); }
+      const nn = m.n + (m.ring ? 0 : (e.xShots || 0)), spr = m.spread || (nn > 1 ? 0.16 : 0);   // xShots: a kísértés extra lövedéke
+      for (let i = 0; i < nn; i++) { const a = m.ring ? a0 + i * TAU / nn + A.n * (m.twist || 0) : a0 + (nn > 1 ? (i - (nn - 1) / 2) * spr : rand(-spr, spr)); eBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a, m.spd * (e.sm || 1), { r: m.br, dmg: dmg * 0.9, col, homing: m.homing, life: m.life || 3.5, bounce: m.bounce, pierceP: m.pierce, big: m.br > 14 }); }
       sfx('shoot'); A.n++;
     }
     if (A.shots <= 0 && !m.burst) A.stop = true;
@@ -5203,6 +5199,233 @@ on('runStart', () => { GORE.drops.length = 0; GORE.chunks.length = 0; GORE.decal
   UPG.weaponOffer = weaponOffer;
   UPG.morphOffers = w => (WEAPONS[w] && Array.isArray(WEAPONS[w].morphs)) ? morphOffers(w) : [];
   UPG.own = own;
+})();
+
+// ===================== src/tempt.js =====================
+// The Arkangel – a bűnök kísértései.
+// Nincs bolt és nincs külön szerezhető erősítés: csak a legyőzött bűn hagy maga után kísértést.
+// Minden kísértés kétélű: téged megerősít, de a démonokat is (G.em – az ellenségek szorzói).
+// A bűn halála után a fegyvereid is erősödnek egy szintet (3. szinttől átalakulás választható).
+(() => {
+  'use strict';
+  RAR.tempt = { n: 'Kísértés', c: '#ff5a6a' };
+  const EM = () => G.em || (G.em = { hp: 1, spd: 1, atk: 1, sm: 1, shots: 0, dmg: 1, homing: 0, armor: 0 });
+  const has = id => !!(G && G.tempts && G.tempts.includes(id));
+  const S = () => G.flags._t || (G.flags._t = { seduceT: 0, stillT: 0, healAcc: 0, covet: 0 });
+  const later = (t, fn) => addFx({ upd(dt) { t -= dt; if (t <= 0) { fn(); return false; } return true; } });
+  function heal(n, col = PAL.life) {
+    const p = G.p, h = Math.min(n, p.maxHp - p.hp); if (h <= 0) return;
+    p.hp += h; S().healAcc += h;
+    if (S().healAcc >= 4) { floatText(p.x + rand(-8, 8), p.y - 30, '+' + Math.round(S().healAcc), col, 0.6, 12); S().healAcc = 0; }
+  }
+  let busy = 0;
+  function tHit(x, y, r, d, o) { busy++; try { return hitCircle(x, y, r, d, Object.assign({ tag: 'tempt' }, o || {})); } finally { busy--; } }
+
+  // T(gyűrű, id, név, ikon, rád gyakorolt hatás, a démonokra gyakorolt hatás, alkalmazás a játékosra, alkalmazás a démonokra)
+  const T = (ri, id, n, i, d, d2, p, e) => { TEMPTS[id] = { ri, id, n, i, d, d2, p, e }; };
+
+  // ---------- I. Bujaság ----------
+  T(0, 'seduce', 'A Csábító Töltény', '♥',
+    'Minden lövedéked követi a démonokat, és másodpercenként egy csábító szív repül a legközelebbire.',
+    'A démonok lövedékei is követnek téged.',
+    p => { p.homing += 2; }, m => { m.homing += 0.9; });
+  T(0, 'charm', 'Igéző Pillantás', '❦',
+    'Találataid 15% eséllyel 1,5 mp-re megbabonázzák a démont: megdermed.',
+    'A vágy hajtja őket: a démonok 15%-kal gyorsabbak.',
+    null, m => { m.spd *= 1.15; });
+  T(0, 'passion', 'Szenvedély', '✶',
+    '+30% támadási sebesség.',
+    'A démonok is 25%-kal gyakrabban támadnak.',
+    p => { p.fireDelay *= 0.77; }, m => { m.atk *= 1.25; });
+
+  // ---------- II. Torkosság ----------
+  T(1, 'hunger', 'Telhetetlen Éhség', '◕',
+    'A sebzés gyógyít: a kiosztott sebzés 5%-át visszakapod életerőként.',
+    'A démonok is falnak: ha megsebeznek, a sebzés felét visszagyógyítják.',
+    null, null);
+  T(1, 'belly', 'Feneketlen Gyomor', '●',
+    '+40 max életerő és teljes gyógyulás.',
+    'A démonok életereje 25%-kal nő.',
+    p => { p.maxHp += 40; p.hp = p.maxHp; }, m => { m.hp *= 1.25; });
+  T(1, 'carrion', 'Dögevés', '✣',
+    'Minden ölés 3 életerőt ad, és sokkal gyakrabban hullik szív.',
+    'A démonok felfalják elesett társaikat: ölésnél a közeliek 20%-ot gyógyulnak.',
+    null, null);
+
+  // ---------- III. Fösvénység ----------
+  T(2, 'goldfever', 'Aranyláz', '✪',
+    'Minden nálad lévő 10 lélek +3% sebzést ad (legfeljebb +60%).',
+    'Minden találatuk 3 lelket rabol el tőled (a tolvajt megölve visszakapod).',
+    null, null);
+  T(2, 'midas', 'Midász Érintése', '◈',
+    'A 25% alatti démonokat találatod 15% eséllyel aranyszoborrá dermeszti: azonnal elpusztulnak.',
+    'Aranypáncél: a démonok 15%-kal kevesebb sebzést kapnak.',
+    null, m => { m.armor = 1 - (1 - m.armor) * 0.85; });
+  T(2, 'hoard', 'Harácsolás', '⁂',
+    '+1 lövedék minden lövéshez (közelharcban szélesebb csapás).',
+    'A démonok is eggyel több lövedéket lőnek.',
+    p => { p.shots++; }, m => { m.shots += 1; });
+
+  // ---------- IV. Restség ----------
+  T(3, 'rest', 'Tunya Nyugalom', '☾',
+    'Ha egy pillanatra megállsz, gyorsan gyógyulsz (5 életerő / mp).',
+    'A démonok is regenerálnak: 2% / mp, ha 3 mp-ig nem sebzik őket.',
+    null, null);
+  T(3, 'dream', 'Hosszú Álom', '✧',
+    'A Szent Nova 50%-kal erősebb, és a Kegyelem 40%-kal gyorsabban telik.',
+    'A démonok életereje 20%-kal nő.',
+    p => { p.novaMul *= 1.5; p.graceGain *= 1.4; }, m => { m.hp *= 1.2; });
+  T(3, 'fog', 'Altató Köd', '≈',
+    'Kitéréskor altató köd marad utánad: a benne álló démonok erősen lelassulnak.',
+    'A démonok találatai elnehezítenek: 1 mp-re lelassulsz.',
+    null, null);
+
+  // ---------- V. Harag ----------
+  T(4, 'fury', 'Vak Düh', '⚔',
+    '+35% sebzés.',
+    'A démonok sebzése 25%-kal nő.',
+    p => { p.dmg *= 1.35; }, m => { m.dmg *= 1.25; });
+  T(4, 'blood', 'Lángoló Vér', '✹',
+    'Találataid lángra lobbantják a démonokat.',
+    'A démonok haláluk után felrobbannak.',
+    p => { p.burn++; }, null);
+  T(4, 'revenge', 'Bosszú', '☄',
+    'Ha megsebeznek, haragod lökéshulláma szétveti a közeli démonokat.',
+    'A félholt démonok dühbe gurulnak: 40%-kal gyorsabbak.',
+    null, null);
+
+  // ---------- VI. Irigység ----------
+  T(5, 'covet', 'Mások Ereje', '◐',
+    'Minden ölés 25% eséllyel ellopja a démon erejét: +2% sebzés (legfeljebb +40%).',
+    'Ha egy démon meghal, a közeliek életereje és sebessége 10%-kal nő.',
+    null, null);
+  T(5, 'greeneye', 'Zöld Szem', '◉',
+    '+20% kritikus esély.',
+    'A démonok lövedékei 25%-kal gyorsabbak.',
+    p => { p.crit += 0.2; }, m => { m.sm *= 1.25; });
+  T(5, 'wings', 'Kölcsönvett Szárnyak', '❧',
+    '+18% mozgási sebesség és 25%-kal gyorsabb kitérés.',
+    'A démonok is 15%-kal gyorsabbak.',
+    p => { p.spd *= 1.18; p.dashCd *= 0.75; }, m => { m.spd *= 1.15; });
+
+  // ======================================================================
+  //  felvétel és a démonok megerősítése
+  // ======================================================================
+  function sync() { const m = EM(); G.eDmgMul = m.dmg; G.eHoming = m.homing; }
+  function empower(e) {
+    const m = EM();
+    e.hp *= m.hp; e.maxHp *= m.hp; if (e.poiseMax) { e.poise *= m.hp; e.poiseMax *= m.hp; }
+    e.spd *= m.spd; e.atkMul = m.atk; e.sm = (e.sm || 1) * m.sm; e.xShots = m.shots;
+  }
+  on('spawn', e => { if (G && G.em) empower(e); });
+  function takeTempt(id) {
+    const t = TEMPTS[id]; if (!t || has(id)) return;
+    G.tempts.push(id);
+    if (t.p) t.p(G.p);
+    if (t.e) t.e(EM());
+    sync();
+    const p = G.p, c = RINGS[t.ri].col;
+    floatText(p.x, p.y - 64, t.n, c, 2.2, 20); floatText(p.x, p.y - 42, 'A démonok is megerősödtek…', '#ff8a8a', 2.2, 13);
+    vfx.flash(0.4); vfx.ring(p.x, p.y, 10, 240, c, 0.8, 10); vfx.glyph(p.x, p.y, c, 56, 1.4, -2); vfx.shake(8); sfx('roar');
+  }
+  function temptOffers(ri) {
+    return Object.values(TEMPTS).filter(t => t.ri === ri && !has(t.id)).map(t => ({
+      kind: 'tempt', id: t.id, n: t.n, d: t.d, d2: t.d2, i: t.i, rar: 'tempt', col: RINGS[ri].col, apply: () => takeTempt(t.id),
+    }));
+  }
+  const baseOffers = UPG.offers;
+  // csak a bűn (főellenség) hagy erősítést – minden más forrás üres
+  UPG.offers = (src, n) => src === 'boss' ? temptOffers(G.ring) : src === 'morph' && baseOffers ? baseOffers(src, n) : [];
+
+  // a bűn halála után: minden fegyver erősödik egy szintet, 3. szinttől átalakulás választható
+  UPG.afterSin = done => {
+    const p = G.p; let up = false;
+    for (const w of Object.keys(WEAPONS)) if ((G.wlv[w] || 0) < 4) { G.wlv[w] = (G.wlv[w] || 0) + 1; up = true; }
+    if (up) { const c = (WEAPONS[G.weapon] && WEAPONS[G.weapon].col) || PAL.gold; floatText(p.x, p.y - 86, `A bűn ereje átjárja fegyvereidet — ${G.wlv[G.weapon]}. szint`, c, 2.4, 15); vfx.ring(p.x, p.y, 8, 110, c, 0.5, 6); sfx('unlock'); }
+    const ready = [G.slots.melee, G.slots.ranged].filter(w => w && WEAPONS[w] && (G.wlv[w] || 0) >= 3 && !G.morph[w] && UPG.morphOffers && UPG.morphOffers(w).length);
+    const next = () => { const w = ready.shift(); if (!w) return done(); openChoice('morph', next, UPG.morphOffers(w)); };
+    next();
+  };
+
+  // ======================================================================
+  //  hatások
+  // ======================================================================
+  on('tick', dt => {
+    if (!G.tempts.length) return;
+    const p = G.p, s = S();
+    if (has('seduce') && !G.hub && !G.dying) {
+      s.seduceT -= dt;
+      if (s.seduceT <= 0) {
+        s.seduceT = 1.0;
+        const e = nearestEnemy();
+        if (e && canHit(e) && dist(e, p) < 520) {
+          const a = angTo(p, e);
+          pBullet(p.x + Math.cos(a) * 14, p.y + Math.sin(a) * 14, a, 380, { r: 6, dmg: p.dmg * 1.1, life: 1.8, col: '#ff7ac0', pierce: 0,
+            drw(b) { ctx.save(); ctx.translate(b.x, b.y); ctx.fillStyle = '#ff7ac0'; ctx.beginPath(); ctx.moveTo(0, 5); ctx.bezierCurveTo(-9, -2, -5, -9, 0, -4); ctx.bezierCurveTo(5, -9, 9, -2, 0, 5); ctx.fill(); ctx.restore(); } });
+        }
+      }
+    }
+    if (has('rest') && !G.dying) {
+      if (Math.hypot(p.vx, p.vy) < 12) { s.stillT += dt; if (s.stillT > 0.5) heal(5 * dt, '#9fb8e8'); } else s.stillT = 0;
+    }
+    if (has('rest') && !G.hub) for (const e of G.enemies) {
+      if (e.dead || e.hp >= e.maxHp || gt - (e._lh || 0) < 3) continue;
+      e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.02 * dt);
+      if (Math.random() < dt * 2) part(e.x, e.y - e.r, '#8fb0e0', 2, 40, 0.5, 2);
+    }
+  });
+
+  on('dmgOut', (d, e) => {
+    if (!G.tempts.length) return d;
+    let m = 1;
+    if (has('goldfever')) m *= 1 + Math.min(0.6, Math.floor(G.souls / 10) * 0.03);
+    if (has('covet')) m *= 1 + 0.02 * S().covet;
+    if (G.em && G.em.armor) m *= 1 - G.em.armor;
+    return d * m;
+  });
+
+  on('hit', (e, d) => {
+    if (!G.tempts.length || busy) return;
+    const p = G.p;
+    e._lh = gt;
+    if (has('hunger')) heal(Math.min(d * 0.05, 6), '#b8d43a');
+    if (has('charm') && !e.boss && !e.dead && Math.random() < 0.15) { e.stun = Math.max(e.stun || 0, 1.5); floatText(e.x, e.y - e.r - 14, '♥', '#ff7ac0', 0.9, 16); part(e.x, e.y, '#ff7ac0', 8, 120, 0.5, 2.5); }
+    if (has('midas') && !e.boss && !e.dead && e.hp > 0 && e.hp < e.maxHp * 0.25 && Math.random() < 0.15) {
+      floatText(e.x, e.y - e.r - 14, 'ARANY', '#ffd700', 0.9, 15); part(e.x, e.y, '#ffd700', 24, 200, 0.7, 3);
+      killEnemy(e); for (let i = 0; i < 3; i++) dropPickup('soul', e.x, e.y);
+    }
+    if (has('revenge') && !e.boss && !e.dead && !e.rage && e.hp < e.maxHp * 0.5) { e.rage = true; e.spd *= 1.4; floatText(e.x, e.y - e.r - 12, 'DÜH!', '#ff4a24', 0.8, 14); }
+  });
+
+  on('kill', e => {
+    if (!G.tempts.length || e.boss) return;
+    const p = G.p;
+    if (has('carrion')) { heal(3, '#c8d860'); if (Math.random() < 0.08) dropPickup('heart', e.x, e.y); }
+    if (has('carrion') || has('covet')) for (const o of G.enemies) {
+      if (o.dead || o === e || Math.hypot(o.x - e.x, o.y - e.y) > 240) continue;
+      if (has('carrion')) { o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.2); floatText(o.x, o.y - o.r * 2.4, 'falás +', '#b8d43a', 0.7, 11); }
+      if (has('covet')) { o.maxHp *= 1.1; o.hp *= 1.1; o.spd *= 1.1; part(o.x, o.y, '#3ddc84', 6, 80, 0.4, 2); }
+    }
+    if (has('covet') && S().covet < 20 && Math.random() < 0.25) { S().covet++; floatText(p.x, p.y - 40, `elorzott erő +${S().covet * 2}%`, '#3ddc84', 1, 12); part(e.x, e.y, '#3ddc84', 10, 160, 0.5, 2.5); }
+    if (has('blood') && !G.hub && G.ring !== 4) { G.hazards.push({ x: e.x, y: e.y, r: 70, type: 'blast', warn: 0.7, warn0: 0.7, life: 0.3, dmg: eDmg() * 0.9, col: '#ff8a3a' }); part(e.x, e.y, '#ff8a3a', 16, 260, 0.5, 4); }
+  });
+
+  on('hurt', (d, src) => {
+    if (!G.tempts.length) return;
+    const p = G.p, foe = src && src.maxHp && !src.dead ? src : null;
+    if (has('hunger') && foe) { foe.hp = Math.min(foe.maxHp, foe.hp + d * 0.5); floatText(foe.x, foe.y - foe.r - 12, '+' + Math.round(d * 0.5), '#b8d43a', 0.8, 12); }
+    if (has('goldfever') && G.souls > 0) { const n = Math.min(3, G.souls); G.souls -= n; if (foe) foe.loot = (foe.loot || 0) + n; floatText(p.x, p.y - 52, `-${n} ◈`, '#ffc23a', 0.9, 13); }
+    if (has('fog')) p.slow = Math.max(p.slow, 1);
+    if (has('revenge')) { vfx.ring(p.x, p.y, 10, 150, '#ff4a24', 0.4, 8); vfx.shake(6); tHit(p.x, p.y, 150, p.dmg * 3, { kb: 420 }); }
+  });
+
+  on('dash', () => {
+    if (!has('fog')) return;
+    const x = G.p.x, y = G.p.y, R = 90; let t = 0; const dur = 3;
+    addFx({ under: true,
+      upd(dt) { t += dt; for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < R + e.r) e.slowT = Math.max(e.slowT || 0, 0.4); return t < dur; },
+      drw() { const al = Math.min(1, (dur - t) * 1.5) * 0.28; ctx.save(); ctx.fillStyle = hexA('#8fb0e0', al); for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.arc(x + Math.cos(k * 1.3 + t) * 30, y + Math.sin(k * 1.7 + t) * 20, R * 0.6, 0, TAU); ctx.fill(); } ctx.restore(); } });
+  });
 })();
 
 // ===================== src/levels.js =====================

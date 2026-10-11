@@ -2,6 +2,8 @@
 
 **Roguelike akciójáték PC-re és telefonra:** az Arkangyal a **Purgatóriumból** indul, ahol hét kapu nyílik a Pokol hét gyűrűjébe. Minden gyűrű egy főbűn, saját átokkal és démonnal. A **Kevélység** kapuját hat lakat zárja: mindegyik akkor hullik le, amikor legyőzöl egy másik főbűnt. Mögötte Lucifer vár.
 
+Ha belépsz egy kapun, az **bezárul mögötted**: csak a bűn démonának halála után jöhetsz ki. Nincs bolt és nincs külön szerezhető erősítés: **csak a legyőzött bűnök hagynak maguk után kísértést**, ami téged is és a démonokat is megerősíti.
+
 ## Játék online
 
 **https://hotachi-code.github.io/The-Arkangel/**: bárhonnan megnyitható böngészőben, PC-n és telefonon is.
@@ -17,7 +19,6 @@ Nyisd meg a linket, fordítsd fekvőbe a telefont, és érintsd meg a képernyő
 | **Jobb hüvelykujj** érintése (húzás nélkül) | automatikus célzás a legközelebbi démonra |
 | **KITÉRÉS** gomb | kitérés |
 | **NOVA** gomb | Szent Nova |
-| **VÉTEL** gomb (boltban, tárgy mellett) | vásárlás |
 | **FEGYVER** gomb | fegyvercsere |
 | **❚❚** gomb | szünet |
 
@@ -38,8 +39,7 @@ Internet nem kell hozzá. Az egész játék egyetlen fájl.
 | **Space / Shift** | kitérés (közben sérthetetlen vagy) |
 | **X / Tab** | fegyvercsere: Szent Fény (távolsági) ↔ Égi Penge (közelharci) |
 | **Q** / jobb egérgomb | Szent Nova, ha a Kegyelem-sáv megtelt (minden közeli démont sebez és eltörli a lövedékeket) |
-| **E** | vásárlás a boltban |
-| **Esc** | szünet és az áldásaid listája |
+| **Esc** | szünet és a kísértéseid listája |
 | **F** | teljes képernyő |
 | **M** | hang ki/be |
 
@@ -57,9 +57,9 @@ Internet nem kell hozzá. Az egész játék egyetlen fájl.
 
 ## Nyílt világ, történet és fegyverek
 
-- **Egyetlen nagy, bejárható világ**: középen a Purgatórium (Vergiliusz, a fegyvertalapzatok), körülötte hat bűn tája saját tereppel (rózsabokrok, iszap, aranyhalmok, mocsár, lávafolyók, kristályok), északon a hat lakattal lezárt Kevélység. Követő kamera, minitérkép és teljes térkép (**N** / koppintás a minitérképre), bejárási köd.
-- **Helyszínek** minden tájban: névvel ellátott táborok hullámokkal, megszólítható lelkek (Paolo és Francesca, Ciacco, Midász, Belacqua, Filippo Argenti, Sapia, Omberto…), Égi Oltár, ereklyeoltár, a Bűnbánó Kalmár és a bűn démonának arénája.
-- **Kijelölt helyek** mindenhol, nincs folyamatos ellenségszülés: démonbarlangok karóba húzott tetemekkel és ketrecekkel, romok és látványosságok feliratokkal, bajba jutott lelkek, (néha elátkozott) ereklyetartók. A Bűnbánó Kalmár egy bekerített menedékben árul, ahová démon nem léphet be.
+- **Egyetlen nagy világ, elzárt tájakkal**: középen a Purgatórium (Vergiliusz, a fegyvertalapzatok), körülötte hat bűn tája saját tereppel (rózsabokrok, iszap, aranyhalmok, mocsár, lávafolyók, kristályok), északon a hat lakattal lezárt Kevélység. A tájak nem nyílnak egymásba, mindegyikbe csak a saját kapuján át jutsz be, és az bezárul mögötted, amíg a bűn él. Követő kamera, minitérkép és teljes térkép (**N** / koppintás a minitérképre), bejárási köd.
+- **Helyszínek** minden tájban: névvel ellátott táborok hullámokkal, megszólítható lelkek (Paolo és Francesca, Ciacco, Midász, Belacqua, Filippo Argenti, Sapia, Omberto…) és a bűn démonának arénája.
+- **Kijelölt helyek** mindenhol, nincs folyamatos ellenségszülés: démonbarlangok karóba húzott tetemekkel és ketrecekkel, romok és látványosságok feliratokkal, bajba jutott lelkek, (néha elátkozott) ereklyetartók. Ezek csak lelket és életerőt adnak, erősítést nem.
 - **Sötét, véres hangulat**: vér fröccsen minden találatnál, a földön megmaradnak a foltok, a megölt démonok szétszakadnak, a tetemük ott marad.
 - **Nincs töltényeső**: a végtagos, animált démonok (felkészülés, lecsapás, kifújás, megrándulás, tántorgás) és a fegyveres főellenségek egy MI segítségével választanak közelharci, távolsági és különleges mozdulataik közül (harapás, roham, csapás, köpés, becsapódás, teleport…). Minden támadást előre jeleznek, egyszerre csak néhány démon támad, a többi kerülget, és van, aki kitér a lövedékeid elől.
 - Hat fegyver áll a talapzatokon. Egyszerre egy közelharci és egy távolsági lehet nálad, köztük X / Tab / FEGYVER gombbal váltasz:
@@ -73,13 +73,38 @@ Internet nem kell hozzá. Az egész játék egyetlen fájl.
 | **Jerikói Harsona** | távolsági | hanghullámok, amelyek hátralökik a démonokat és elnyelik a lövedékeket; minden 3. egy „fanfár” |
 | **Az Ige Könyve** | távolsági | követő szentírás-lapok, amelyek felrobbanó rúnajelet nyomnak a démonokra |
 
-- Minden fegyver 4 szintet léphet, 3. szinttől pedig **két átalakulás** közül választhatsz (pl. Lángoló Kard, Holdsarló, Mennydörgő Pöröly, Csillageső, Utolsó Harsona, Kerubok Kórusa).
-- **62 áldás** négy ritkasággal (közönséges, ritka, epikus, legendás), **31 ereklye** (Júdás ezüstje, Lázár csontja, Noé galambja, Dávid parittyája…) és **8 ereklye-egyesülés** (pl. Dávid parittyája + Góliát sisakja → Óriásölő Kő).
+- Minden legyőzött bűn után **minden fegyvered egy szintet lép** (legfeljebb 4-et), 3. szinttől pedig **két átalakulás** közül választhatsz (pl. Lángoló Kard, Holdsarló, Mennydörgő Pöröly, Csillageső, Utolsó Harsona, Kerubok Kórusa).
+- A lelkek a Szent Nova Kegyelmét töltik (és az Aranyláz kísértés ezekből számol).
+
+## A bűnök kísértései
+
+Erősítést csak a legyőzött bűn hagy maga után: három, a bűnhöz illő kísértés közül választhatsz egyet. Mindegyik kétélű: ✚ téged megerősít, ☠ de a démonokat is (a főellenségeket is).
+
+| Bűn | Kísértés | ✚ Neked | ☠ A démonoknak |
+|---|---|---|---|
+| I. Bujaság | **A Csábító Töltény** | minden lövedéked követi a démonokat, és másodpercenként egy csábító szív repül a legközelebbire | a lövedékeik is követnek |
+| | Igéző Pillantás | a találatok 15% eséllyel megbabonázzák (megdermesztik) a démont | +15% sebesség |
+| | Szenvedély | +30% támadási sebesség | 25%-kal gyakrabban támadnak |
+| II. Torkosság | **Telhetetlen Éhség** | a kiosztott sebzés 5%-a gyógyít | ha megsebeznek, a sebzés felét visszagyógyítják |
+| | Feneketlen Gyomor | +40 max életerő, teljes gyógyulás | +25% életerő |
+| | Dögevés | ölésenként 3 életerő, több szív | felfalják elesett társaikat (20% gyógyulás) |
+| III. Fösvénység | Aranyláz | 10 lelkenként +3% sebzés (max. +60%) | minden találatuk 3 lelket rabol |
+| | Midász Érintése | a 25% alatti démonok 15% eséllyel aranyszoborrá dermednek | 15% sebzéscsökkentő aranypáncél |
+| | Harácsolás | +1 lövedék | ők is eggyel több lövedéket lőnek |
+| IV. Restség | Tunya Nyugalom | állva gyorsan gyógyulsz | ők is regenerálnak, ha 3 mp-ig nem sebzik őket |
+| | Hosszú Álom | +50% Nova, 40%-kal gyorsabb Kegyelem | +20% életerő |
+| | Altató Köd | kitéréskor lassító köd marad utánad | a találataik lelassítanak |
+| V. Harag | Vak Düh | +35% sebzés | +25% sebzés |
+| | Lángoló Vér | a találataid felgyújtanak | haláluk után felrobbannak |
+| | Bosszú | sérüléskor lökéshullám veti szét a közeli démonokat | félholtan dühbe gurulnak (+40% sebesség) |
+| VI. Irigység | Mások Ereje | az ölések 25% eséllyel +2% sebzést adnak (max. +40%) | ha egy démon meghal, a közeliek erősebbek lesznek |
+| | Zöld Szem | +20% kritikus esély | 25%-kal gyorsabb lövedékek |
+| | Kölcsönvett Szárnyak | +18% sebesség, gyorsabb kitérés | +15% sebesség |
 - Az első hat bűn tetszőleges sorrendben járható be. A nehézség azzal nő, hány bűnt győztél már le.
 
 ## Fejlesztőknek
 
-A forrás a `src/` mappában van (`core.html` a motor, `world.js` a nyílt világ, `ai.js` az ellenség-MI, `rig.js` a démonok rajza és animációja, `gore.js` a vér és a belsőségek, `weapons.js`, `upgrades.js`, `levels.js` a tartalom, `API.md` a leírás). A játékfájlt a `python3 build.py` állítja elő, a `tools/smoke.js` egy Playwright-füstteszt.
+A forrás a `src/` mappában van (`core.html` a motor, `world.js` a nyílt világ, `ai.js` az ellenség-MI, `rig.js` a démonok rajza és animációja, `gore.js` a vér és a belsőségek, `tempt.js` a bűnök kísértései, `weapons.js`, `upgrades.js`, `levels.js` a tartalom, `API.md` a leírás). A játékfájlt a `python3 build.py` állítja elő, a `tools/smoke.js` egy Playwright-füstteszt.
 
 ## Harc: kitartás, egyensúly, kitérés
 
@@ -126,7 +151,5 @@ A forrás a `src/` mappában van (`core.html` a motor, `world.js` a nyílt vilá
 ## Roguelike elemek
 
 - Minden futásnál véletlenszerűen generált termek és pályák.
-- 20 féle **áldás** (fejlesztés): többes lövés, átható fény, követő lövedékek, őrző gömbök, szent láng, pajzs és még sok más.
-- **Égi Oltár** (arany jel a térképen): 3 áldásból választhatsz egyet.
-- **Bolt** (kék jel): lelkekért vásárolhatsz áldást vagy gyógyulást.
+- Nincs bolt és nincs oltár: erősítést csak a legyőzött bűnök kísértései adnak, és azok a démonokat is erősítik.
 - Halál után minden elölről kezdődik. A legmélyebb elért gyűrűt a játék megjegyzi.

@@ -139,9 +139,11 @@ const BOSS_MOVES = {
 // ---------- létrehozás ----------
 function mkEnemy(type, x, y, ri) {
   const d = ET[type], lv = G.lvl, m = 1.4 + 0.5 * lv, hp = d.hp * m;
-  return { type, x, y, r: d.r, hp, maxHp: hp, poise: hp * 0.4, poiseMax: hp * 0.4, poiseT: 0, broken: 0, z: 0, spd: d.spd * (1.06 + 0.04 * lv), t: rand(0, 2), st: 0, stT: rand(0.8, 2),
+  const e = { type, x, y, r: d.r, hp, maxHp: hp, poise: hp * 0.4, poiseMax: hp * 0.4, poiseT: 0, broken: 0, z: 0, spd: d.spd * (1.06 + 0.04 * lv), t: rand(0, 2), st: 0, stT: rand(0.8, 2),
     flash: 0, spawn: 0.6, burn: 0, orbCd: 0, alpha: 1, ghost: false, side: Math.random() < 0.5 ? 1 : -1, spin: rand(0, TAU), shT: 0, boss: false, dead: false,
     ri: ri !== undefined ? ri : (G.hub ? 7 : G.ring), home: { x, y }, aggro: false, cds: {}, act: null, think: rand(0, 0.4), sideT: rand(1, 3), wander: null, face: rand(0, TAU), dodgeCd: 0 };
+  emit('spawn', e);
+  return e;
 }
 function spawnBoss(x, y) {
   const ri = G.ring, bd = BOSSES[ri], bhp = bd.key === 'lucifer' ? bd.hp : BOSS_HP[Math.min(5, G.lvl)];
@@ -149,6 +151,7 @@ function spawnBoss(x, y) {
   const b = mkEnemy('imp', f.x, f.y, ri);
   Object.assign(b, { type: 'boss', key: bd.key, bd, boss: true, r: bd.r, hp: bhp * 2.6, maxHp: bhp * 2.6, poise: bhp * 0.22, poiseMax: bhp * 0.22, armor: 0.15, age: 0, spd: bd.spd * 1.15, spawn: 0, intro: 2.2, aggro: true,
     phase: 1, sm: 1 + G.lvl * 0.04, inv: 0, trail: [], atk: null, home: { x, y } });
+  emit('spawn', b);   // a kísértések a főellenséget is megerősítik
   G.enemies.push(b); G.boss = b; G.bossAlive = true;
   G.banner = { title: bd.name, sub: bd.title, line: bd.line, t: 0, dur: 3.4, col: RINGS[ri].col };
   sfx('roar'); G.shake = 10;
@@ -209,7 +212,7 @@ function updEnemy(e, dt) {
   if (e.spawn > 0) { e.spawn -= dt; return; }
   if (e.kbx || e.kby) { e.x += e.kbx * dt; e.y += e.kby * dt; const f = Math.pow(0.002, dt); e.kbx *= f; e.kby *= f; if (Math.abs(e.kbx) + Math.abs(e.kby) < 8) e.kbx = e.kby = 0; }
   if (e.slowT > 0) e.slowT -= dt;
-  for (const k in e.cds) if (e.cds[k] > 0) e.cds[k] -= dt * (e.boss && e.phase > 1 ? 1.25 : 1);
+  for (const k in e.cds) if (e.cds[k] > 0) e.cds[k] -= dt * (e.boss && e.phase > 1 ? 1.25 : 1) * (e.atkMul || 1);
   if (!e.boss && G.ring === 4 && !G.hub && !e.rage && e.hp < e.maxHp * 0.5 && e.ri === 4) { e.rage = true; e.spd *= 1.4; floatText(e.x, e.y - e.r - 12, 'DÜH!', '#ff4a24', 0.8, 14); }
   const d = dist(e, p);
   e.hitWall = false;
@@ -256,11 +259,6 @@ function think(e, dt, d) {
   // ne torlódjanak egymásra
   for (const o of G.enemies) { if (o === e || o.dead || o.boss) continue; const dx = e.x - o.x, dy = e.y - o.y, dd = dx * dx + dy * dy; if (dd < 3600 && dd > 1) { a = Math.atan2(Math.sin(a) + dy / Math.sqrt(dd) * 0.6, Math.cos(a) + dx / Math.sqrt(dd) * 0.6); } }
   e.x += Math.cos(a) * s * dt; e.y += Math.sin(a) * s * dt; e.moving = s;
-  keepOutOfSanctuary(e);
-}
-// a menedékbe (kalmár) démon nem léphet
-function keepOutOfSanctuary(e) {
-  for (const o of G.pois) { if (o.type !== 'shop') continue; const dx = e.x - o.x, dy = e.y - o.y - 30, d = Math.hypot(dx / 1.75, dy); if (d < 110) { const k = 110 / Math.max(1, d); e.x = o.x + dx * k; e.y = o.y + 30 + dy * k; } }
 }
 function wander(e, dt, sp) {
   if (EDEF[e.type] && EDEF[e.type].still) return;
@@ -438,7 +436,8 @@ function actTick(e, A, m, dt) {
     if (A.shots > 0 && A.next <= 0) {
       A.shots--; A.next = 0.16; const a0 = angTo(e, p);
       const col = m.col || RINGS[e.ri].col;
-      for (let i = 0; i < m.n; i++) { const a = m.ring ? a0 + i * TAU / m.n + A.n * (m.twist || 0) : a0 + (m.n > 1 ? (i - (m.n - 1) / 2) * m.spread : rand(-m.spread, m.spread)); eBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a, m.spd * (e.sm || 1), { r: m.br, dmg: dmg * 0.9, col, homing: m.homing, life: m.life || 3.5, bounce: m.bounce, pierceP: m.pierce, big: m.br > 14 }); }
+      const nn = m.n + (m.ring ? 0 : (e.xShots || 0)), spr = m.spread || (nn > 1 ? 0.16 : 0);   // xShots: a kísértés extra lövedéke
+      for (let i = 0; i < nn; i++) { const a = m.ring ? a0 + i * TAU / nn + A.n * (m.twist || 0) : a0 + (nn > 1 ? (i - (nn - 1) / 2) * spr : rand(-spr, spr)); eBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a, m.spd * (e.sm || 1), { r: m.br, dmg: dmg * 0.9, col, homing: m.homing, life: m.life || 3.5, bounce: m.bounce, pierceP: m.pierce, big: m.br > 14 }); }
       sfx('shoot'); A.n++;
     }
     if (A.shots <= 0 && !m.burst) A.stop = true;

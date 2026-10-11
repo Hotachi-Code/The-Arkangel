@@ -50,7 +50,7 @@ A `roomEnter`/`roomClear` események egy harci találkozás (tábor, les, aréna
 ## Események (relikviákhoz, fegyverekhez)
 `on(esemény, fn)` – feliratkozás (egyszer, betöltéskor). `emit` a magból jön. `modify(esemény, érték, ...)` láncban módosít.
 - `emit`: `runStart`, `tick (dt)`, `hit (e, dmg, o)`, `kill (e)`, `hurt (dmg, forrás)`, `dash`, `nova`, `roomEnter (room)`, `roomClear (room)`,
-  `bossKill (b)`, `ringEnter (ri)`, `hubEnter (honnanRi|null)`, `relic (id)`, `offer (o)`, `talkEnd (room)`.
+  `bossKill (b)`, `ringEnter (ri)`, `hubEnter (honnanRi|null)`, `spawn (e)` (új démon, a kísértések erősítik), `relic (id)`, `offer (o)`, `talkEnd (room)`.
 - `modify`: `dmgOut (d, e, o) -> d`, `dmgIn (d, forrás) -> d`, `revive (false) -> true` (ha igaz, a játékos nem hal meg; állítsd be te a hp-t).
 Az ereklye-hookok mindig ellenőrizzék: `if (!hasRelic('id')) return;`.
 
@@ -73,7 +73,10 @@ A fegyver a `G.wlv[id]`-t és a `G.morph[id]`-t olvassa, és ennek megfelelően 
 - `BL` – áldások tömbje: `{ id, n, d, i (ikon-karakter), rar, max?, w? (csak ha ez a fegyver nálad van), req?() , a(p) }`. Bővíthető: `BL.push(...)`.
 - `applyBlessing(b)`, `gainRelic(id)`, `blessOffer(b)`, `relicOffer(id)`, `blessOk(b)`, `takeOffer(o)`.
 - Ajánlat-objektum: `{ kind:'bless'|'weapon'|'morph'|'relic'|'fuse'|'heal', id, n, d, i, icon?(x,y,s), rar, col?, price?, apply() }`.
-- `UPG.offers(src, n)` – a mag ezt hívja: `src` = 'treasure' (Égi Oltár), 'boss' (főellenség után), 'shop' (bolt, 3 tétel), 'shrine' (ereklyeoltár), 'story' (lélek ajándéka), vagy bármi, amit egy pálya `npc.reward`-ja megad.
+- `UPG.offers(src, n)` – a mag ezt hívja. **Erősítés csak a bűntől jön**: a `src/tempt.js` felülírja, így 'boss' → a legyőzött bűn kísértései (`TEMPTS`), 'morph' → átalakulás, minden más üres. Bolt, Égi Oltár, ereklyeoltár nincs, az `npc.reward` nem ad választást.
+- `TEMPTS` – a bűnök kísértései: `{ ri, id, n, i, d (rád hat), d2 (a démonokra hat), p(játékos), e(G.em) }`. A felvettek: `G.tempts`. A démonok szorzói: `G.em = { hp, spd, atk, sm, shots, dmg, homing, armor }`; a `spawn` esemény (`mkEnemy`, `spawnBoss`) alkalmazza őket, `G.eDmgMul` az `eDmg()`-t, `G.eHoming` az ellenséges lövedékeket módosítja.
+- `UPG.afterSin(kész)` – a kísértés után: minden fegyver +1 szint, a 3. szinttől átalakulás-választás.
+- Kapuzár: belépéskor `G.sealed = ri`, a játékos addig nem hagyhatja el a tájat, amíg a bűn él (`sealUpdate` a `world.js`-ben).
 - `openChoice(src, cb, opts?)` – választóképernyő (opts nélkül `UPG.offers(src,3)`).
 - `RELICS` – `Object.assign(RELICS, { id: { n, d, i, col, rar, apply?(p) } })`.
 

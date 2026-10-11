@@ -81,6 +81,7 @@ const GATE_ORDER = [0, 1, 2, 6, 3, 4, 5];
 // ---------- bővíthető regiszterek (a src/*.js részek töltik fel) ----------
 const WEAPONS = {};   // id -> { n, short, kind:'melee'|'ranged', d, col, update(p, ws, dt, aim), drawHeld?, glow?, icon(x,y,s), lv:[...], morphs:[...] }
 const RELICS = {};    // id -> { n, d, i, col, rar, apply?() }
+const TEMPTS = {};    // id -> { ri, n, i, d (rád hat), d2 (a démonokra hat), p(pl), e(mod) } — a bűnök kísértései (src/tempt.js)
 const LEVELS = {};    // ri -> { intro, rooms:[...], bossTalk } ; LEVELS.hub, LEVELS.epilogue
 const UPG = {};       // offers(src, n) -> ajánlatok listája
 const PAL = { holy: '#f0dca0', gold: '#d8b050', white: '#f0e8dc', soul: '#9fd0dc', blood: '#9a1414', fire: '#d8642a', ember: '#d8903a',
@@ -219,7 +220,7 @@ function toggleFS() { try { if (!document.fullscreenElement) document.documentEl
 
 // ---------- érintéses vezérlés (telefon / tablet) ----------
 // Bal térfél: mozgás-joystick. Jobb térfél: célzó-joystick (húzva lő; csak érintve a legközelebbi démonra lő).
-// Gombok: kitérés, Szent Nova, vásárlás, szünet.
+// Gombok: kitérés, Szent Nova, fegyvercsere, szünet.
 const touch = {
   on: matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window,
   move: null, aim: null, btns: {},
@@ -227,18 +228,11 @@ const touch = {
 const TB = {
   dash: { x: W - 80, y: H - 80, r: 44, label: 'KITÉRÉS' },
   nova: { x: W - 190, y: H - 52, r: 34, label: 'NOVA' },
-  use: { x: W - 175, y: H - 155, r: 32, label: 'VÉTEL' },
   swap: { x: W - 62, y: H - 192, r: 28, label: 'FEGYVER' },
   pause: { x: 742, y: 32, r: 20, label: '' },
 };
 function tpos(t) { const r = cv.getBoundingClientRect(); return { x: (t.clientX - r.left) / r.width * W, y: (t.clientY - r.top) / r.height * H }; }
-function shopItems() { const out = []; if (G && G.pois) for (const o of G.pois) if (o.type === 'shop' && o.items && Math.hypot(o.x - G.p.x, o.y - G.p.y) < 400) out.push(...o.items); return out; }
-function nearShopItem() {
-  if (!G || !G.pois) return null;
-  for (const it of shopItems()) if (!it.sold && dist(it, G.p) <= 40) return it;
-  return null;
-}
-function tbVisible(k) { if (G && G.hub && (k === 'swap' || k === 'nova')) return false; return k !== 'use' || !!nearShopItem(); }
+function tbVisible(k) { return !(G && G.hub && (k === 'swap' || k === 'nova')); }
 function tryLandscape() {
   try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { }
   try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => { }); } catch (e) { }
@@ -262,7 +256,7 @@ function touchStart(e) {
     for (const k in TB) { const b = TB[k]; if (tbVisible(k) && Math.hypot(q.x - b.x, q.y - b.y) < b.r + 14) { hit = k; break; } }
     if (hit) {
       touch.btns[t.identifier] = hit;
-      if (hit === 'dash') dash(); else if (hit === 'nova') nova(); else if (hit === 'use') interact(); else if (hit === 'swap') swapWeapon(); else if (hit === 'pause') state = 'pause';
+      if (hit === 'dash') dash(); else if (hit === 'nova') nova(); else if (hit === 'swap') swapWeapon(); else if (hit === 'pause') state = 'pause';
     } else if (q.x < W / 2) { if (!touch.move) touch.move = { id: t.identifier, ox: q.x, oy: q.y, x: q.x, y: q.y }; }
     else if (!touch.aim) touch.aim = { id: t.identifier, ox: q.x, oy: q.y, x: q.x, y: q.y };
   }
@@ -327,7 +321,6 @@ function drawTouch() {
     let ready = true, frac = 1, col = '#fff6c8';
     if (k === 'dash') { frac = p.dashCool > 0 ? 1 - p.dashCool / p.dashCd : 1; ready = frac >= 1; }
     if (k === 'nova') { frac = p.grace / p.maxGrace; ready = frac >= 1; col = '#ffd75e'; }
-    if (k === 'use') col = '#8fe8ff';
     ctx.globalAlpha = held.has(k) ? 0.7 : 0.4; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
     ctx.globalAlpha = ready ? 0.9 : 0.45; ctx.strokeStyle = col; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
@@ -366,7 +359,6 @@ function onKey(c) {
     if (c === 'Escape' || c === 'KeyP') state = 'pause';
     else if (c === 'KeyQ') nova();
     else if (c === 'Space' || c === 'ShiftLeft' || c === 'ShiftRight') dash();
-    else if (c === 'KeyE') interact();
     else if (c === 'KeyX' || c === 'Tab') swapWeapon();
     else if (c === 'KeyN') state = 'map';
   }
@@ -406,7 +398,7 @@ function startRun() {
     fade: 1, banner: null, bossAlive: false, boss: null, portal: null, shake: 0, hurtFx: 0, novaFx: null,
     afterBoss: 0, winT: 0, dying: 0, orbA: 0, charm: 0, roomT: 0, bossesKilled: 0,
     lvl: 0, hub: true, defeated: [], weapon: 'blade', hubRoom: null, slashes: [], amb: [], msgT: 0, waves: [], hitstop: 0, flash: 0,
-    slots: { melee: 'blade', ranged: 'bow' }, ws: {}, wlv: {}, morph: {}, relics: [], fx: [], talk: null, flags: {},
+    slots: { melee: 'blade', ranged: 'bow' }, ws: {}, wlv: {}, morph: {}, relics: [], tempts: [], fx: [], talk: null, flags: {},
   };
   if (!WEAPONS[G.slots.melee]) G.slots.melee = Object.keys(WEAPONS).find(k => WEAPONS[k].kind === 'melee');
   if (!WEAPONS[G.slots.ranged]) G.slots.ranged = Object.keys(WEAPONS).find(k => WEAPONS[k].kind === 'ranged');
@@ -465,7 +457,8 @@ function ringBanner() {
   const r = RG();
   G.banner = { title: `${ROMAN[G.ring]}. GYŰRŰ — ${r.name.toUpperCase()}`, sub: r.latin, line: r.verse, curse: CURSE[G.ring], t: 0, dur: 5.2, col: r.col };
 }
-const eDmg = () => 13 + G.lvl * 2.4, cDmg = () => 15 + G.lvl * 2.8;
+// G.eDmgMul: a felvett kísértések a démonok sebzését is növelik (src/tempt.js)
+const eDmg = () => (13 + G.lvl * 2.4) * (G.eDmgMul || 1), cDmg = () => (15 + G.lvl * 2.8) * (G.eDmgMul || 1);
 
 // ---------- pálya generálás ----------
 const DIRS = [[0, -1, 'n'], [1, 0, 'e'], [0, 1, 's'], [-1, 0, 'w']];
@@ -511,7 +504,7 @@ function pick(i) {
   G.choice = null; state = 'play'; mouse.down = false;
   takeOffer(c.opts[i]); if (c.cb) c.cb();
 }
-function cardRect(i) { const n = G && G.choice ? G.choice.opts.length : 3, w = n > 3 ? 210 : 250, gap = n > 3 ? 22 : 30, x0 = CX - (n * w + (n - 1) * gap) / 2; return { x: x0 + i * (w + gap), y: 190, w, h: 310 }; }
+function cardRect(i) { const n = G && G.choice ? G.choice.opts.length : 3, w = n > 3 ? 210 : 250, gap = n > 3 ? 22 : 30, x0 = CX - (n * w + (n - 1) * gap) / 2; return { x: x0 + i * (w + gap), y: 180, w, h: 340 }; }
 function cardAt(x, y) { const n = G && G.choice ? G.choice.opts.length : 3; for (let i = 0; i < n; i++) { const r = cardRect(i); if (x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h) return i; } return -1; }
 
 // ---------- akciók ----------
@@ -663,20 +656,6 @@ function nova() {
   for (const e of G.enemies) if (!e.dead && dist(e, p) < NOVA_R + e.r) dmgEnemy(e, p.dmg * 3 * p.novaMul * (e.boss ? 0.5 : 1), false, true);
   part(p.x, p.y, '#fff6c8', 80, 500, 0.8, 4);
 }
-function interact() {
-  const p = G.p;
-  {
-    for (const it of shopItems()) {
-      if (it.sold || dist(it, p) > 40) continue;
-      if (G.souls < it.price) { floatText(it.x, it.y - 40, 'Nincs elég lélek', '#ff8080', 1, 14); sfx('block'); return; }
-      G.souls -= it.price; it.sold = true; sfx('buy');
-      if (it.heal) { p.hp = Math.min(p.maxHp, p.hp + 40); floatText(p.x, p.y - 30, '+40', '#ff6b8a', 1, 16); }
-      else takeOffer(it.offer);
-      return;
-    }
-  }
-}
-
 // ---------- sebzés ----------
 function dmgEnemy(e, d, cr, nova, o) {
   if (e.dead || e.ghost || (e.boss && (e.intro > 0 || e.inv > 0))) return;
@@ -753,7 +732,9 @@ function floatText(x, y, s, col, life = 1, size = 14) { G.texts.push({ x, y, s, 
 // ---------- ellenséges lövedékek ----------
 function eBullet(x, y, a, spd, o) {
   if (G.bullets.length > 1100) return;
-  G.bullets.push(Object.assign({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg: eDmg(), f: false, life: 7, col: RG().col }, o || {}));
+  const b = Object.assign({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg: eDmg(), f: false, life: 7, col: RG().col }, o || {});
+  if (G.eHoming) b.homing = Math.max(b.homing || 0, G.eHoming);   // a Csábító Töltény kísértése: a démonok lövedékei is követnek
+  G.bullets.push(b);
 }
 function radial(x, y, n, spd, off = 0, o) { for (let i = 0; i < n; i++) eBullet(x, y, off + i / n * TAU, spd, o); }
 
@@ -840,7 +821,7 @@ function update(dt) {
     if (G.dying || d > 700) continue;
     if (k.type === 'soul' && d < 150 && k.t > 0.3) { const s2 = 500 * (1 - d / 160) + 80; k.x += (p.x - k.x) / d * s2 * dt; k.y += (p.y - k.y) / d * s2 * dt; }
     if (d < p.r + 10 && k.t > 0.25) {
-      if (k.type === 'soul') { G.souls++; k.gone = true; sfx('soul'); if (p.soulHeal) p.hp = Math.min(p.maxHp, p.hp + p.soulHeal); }
+      if (k.type === 'soul') { G.souls++; k.gone = true; sfx('soul'); p.grace = Math.min(p.maxGrace, p.grace + 1); if (p.soulHeal) p.hp = Math.min(p.maxHp, p.hp + p.soulHeal); }
       else if (k.type === 'heart' && p.hp < p.maxHp) { p.hp = Math.min(p.maxHp, p.hp + 20); k.gone = true; sfx('pick'); floatText(p.x, p.y - 30, '+20', '#ff6b8a', 1, 16); }
     }
   }
@@ -1401,8 +1382,8 @@ function drawHUD() {
   if (wdh && wdh.icon) { ctx.save(); wdh.icon(378, 30, 0.55); ctx.restore(); }
   const lvw = G.wlv[G.weapon] || 0; for (let i = 0; i < lvw; i++) { ctx.fillStyle = wcol; ctx.beginPath(); ctx.arc(368 + i * 7, 49, 2, 0, TAU); ctx.fill(); }
   ctx.fillStyle = G.morph[G.weapon] ? RAR.morph.c : '#aaa'; ctx.font = `9px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(((wdh && wdh.short) || '').toUpperCase(), 378, 60);
-  // ereklyék a fal sávjában
-  G.relics.forEach((id, i) => { const r = RELICS[id]; if (!r) return; const x = 46 + (i % 24) * 20, y = 80 + Math.floor(i / 24) * 20; ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.arc(x, y, 9, 0, TAU); ctx.fill(); ctx.strokeStyle = r.col || RAR.relic.c; ctx.lineWidth = 1; ctx.stroke(); ctx.fillStyle = r.col || RAR.relic.c; ctx.font = `11px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(r.i || '✦', x, y + 4); });
+  // kísértések a fal sávjában
+  G.tempts.forEach((id, i) => { const t = TEMPTS[id]; if (!t) return; const c = RINGS[t.ri].col, x = 46 + i * 22, y = 80; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.beginPath(); ctx.arc(x, y, 10, 0, TAU); ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = c; ctx.font = `12px ${SANS}`; ctx.textAlign = 'center'; ctx.fillText(t.i, x, y + 4); });
   // gyűrű neve
   ctx.textAlign = 'center'; ctx.font = `700 20px ${SERIF}`; ctx.fillStyle = rg.col; ctx.fillText(G.hub ? 'PURGATÓRIUM' : `${ROMAN[G.ring]}. ${rg.name.toUpperCase()}${G.defeated.includes(G.ring) ? ' ✓' : ''}`, 560, 28);
   ctx.font = `12px ${SANS}`; ctx.fillStyle = '#9a8fa8';
@@ -1436,7 +1417,7 @@ function drawCards() {
     ctx.strokeStyle = col; ctx.lineWidth = h ? 3 : 2; ctx.strokeRect(4, 4, r.w - 8, r.h - 8);
     ctx.strokeStyle = hexA(col, 0.3); ctx.lineWidth = 1; ctx.strokeRect(10, 10, r.w - 20, r.h - 20);
     for (const [cx2, cy2] of [[10, 10], [r.w - 10, 10], [10, r.h - 10], [r.w - 10, r.h - 10]]) { ctx.fillStyle = col; ctx.save(); ctx.translate(cx2, cy2); ctx.rotate(Math.PI / 4); ctx.fillRect(-4, -4, 8, 8); ctx.restore(); }
-    const kindN = { bless: 'ÁLDÁS', weapon: 'FEGYVER', morph: 'ÁTALAKULÁS', relic: 'EREKLYE', heal: 'GYÓGYULÁS', fuse: 'EGYESÜLÉS' }[o.kind] || 'ÁLDÁS';
+    const kindN = { tempt: 'KÍSÉRTÉS', bless: 'ÁLDÁS', weapon: 'FEGYVER', morph: 'ÁTALAKULÁS', relic: 'EREKLYE', heal: 'GYÓGYULÁS', fuse: 'EGYESÜLÉS' }[o.kind] || 'ÁLDÁS';
     ctx.textAlign = 'center'; ctx.font = `bold 10px ${SANS}`; ctx.fillStyle = hexA(col, 0.9); ctx.fillText(kindN, r.w / 2, 30);
     const gr = ctx.createRadialGradient(r.w / 2, 92, 4, r.w / 2, 92, 66); gr.addColorStop(0, hexA(col, 0.55)); gr.addColorStop(1, hexA(col, 0));
     ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(r.w / 2, 92, 66, 0, TAU); ctx.fill();
@@ -1444,7 +1425,10 @@ function drawCards() {
     if (o.icon) { ctx.save(); o.icon(r.w / 2, 92, 1.3); ctx.restore(); }
     else { ctx.fillStyle = '#fff6d0'; ctx.font = `48px ${SANS}`; ctx.fillText(o.i || '✦', r.w / 2, 108); }
     ctx.font = `700 ${o.n.length > 18 ? 16 : 19}px ${SERIF}`; ctx.fillStyle = col; ctx.fillText(o.n, r.w / 2, 172);
-    ctx.font = `13px ${SANS}`; ctx.fillStyle = '#ddd'; wrapText(o.d || '', r.w / 2, 198, r.w - 36, 18);
+    if (o.d2) {   // kísértés: ami téged erősít — és ami a démonokat
+      ctx.font = `12px ${SANS}`; ctx.fillStyle = '#e8f0d0'; let y = wrapText('✚ ' + (o.d || ''), r.w / 2, 196, r.w - 32, 16);
+      ctx.fillStyle = '#ff8a8a'; wrapText('☠ ' + o.d2, r.w / 2, y + 22, r.w - 32, 16);
+    } else { ctx.font = `13px ${SANS}`; ctx.fillStyle = '#ddd'; wrapText(o.d || '', r.w / 2, 198, r.w - 36, 18); }
     if (o.kind === 'bless') { const own = G.blessings.filter(x => x === o.id).length; if (own) { ctx.fillStyle = '#9a8fa8'; ctx.font = `11px ${SANS}`; ctx.fillText(`Már birtokolt: ${own}×`, r.w / 2, r.h - 50); } }
     ctx.font = `bold 11px ${SANS}`; ctx.fillStyle = col; ctx.fillText(rr.n.toUpperCase(), r.w / 2, r.h - 32);
     ctx.fillStyle = '#776'; ctx.fillText(`[${i + 1}]`, r.w / 2, r.h - 16);
@@ -1455,12 +1439,14 @@ function wrapText(s, x, y, mw, lh) {
   const words = s.split(' '); let line = '';
   for (const w of words) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > mw && line) { ctx.fillText(line, x, y); y += lh; line = w; } else line = t; }
   if (line) ctx.fillText(line, x, y);
+  return y;
 }
 function drawChoice() {
   ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center'; ctx.font = `900 34px ${SERIF}`; ctx.fillStyle = '#ffe27a'; ctx.shadowColor = '#ffd75e'; ctx.shadowBlur = 20;
-  ctx.fillText(G.choice.title || ({ boss: 'A BŰN ELBUKOTT', shrine: 'EREKLYÉK OLTÁRA', story: 'A LÉLEK AJÁNDÉKA', morph: 'ÁTALAKULÁS' }[G.choice.src]) || 'ÉGI ÁLDÁS', CX, 120); ctx.shadowBlur = 0;
-  ctx.font = `16px ${SANS}`; ctx.fillStyle = '#ccc'; ctx.fillText(touch.on ? 'Érintsd meg, amelyiket választod' : 'Válassz (kattintás vagy 1 / 2 / 3)', CX, 155);
+  ctx.fillText(G.choice.title || ({ boss: 'A BŰN KÍSÉRTÉST HAGYOTT HÁTRA', shrine: 'EREKLYÉK OLTÁRA', story: 'A LÉLEK AJÁNDÉKA', morph: 'ÁTALAKULÁS' }[G.choice.src]) || 'ÉGI ÁLDÁS', CX, 120); ctx.shadowBlur = 0;
+  if (G.choice.src === 'boss') { ctx.font = `italic 14px Georgia,serif`; ctx.fillStyle = '#d8a0a0'; ctx.fillText('Ami téged megerősít, az a démonokat is megerősíti.', CX, 146); }
+  ctx.font = `15px ${SANS}`; ctx.fillStyle = '#ccc'; ctx.fillText(touch.on ? 'Érintsd meg, amelyiket választod' : 'Válassz (kattintás vagy 1 / 2 / 3)', CX, 168);
   drawCards();
 }
 function drawPause() {
@@ -1469,8 +1455,8 @@ function drawPause() {
   // irányítás
   ctx.textAlign = 'left'; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = '#ffe27a'; ctx.fillText('Irányítás', 50, 104);
   ctx.font = `12px ${SANS}`; ctx.fillStyle = '#cfc8dc';
-  const lines = touch.on ? ['Bal hüvelykujj — mozgás', 'Jobb hüvelykujj — támadás (tartva: feltöltés)', 'KITÉRÉS — sérthetetlen suhanás', 'NOVA — ha a Kegyelem megtelt', 'FEGYVER — közelharci ↔ távolsági', 'VÉTEL — boltban']
-    : ['WASD — mozgás', 'Egér / nyilak — támadás (tartva: feltöltés)', 'Space / Shift — kitérés', 'Q / jobb klikk — Szent Nova', 'X / Tab — fegyvercsere', 'E — vásárlás   •   F — teljes képernyő   •   M — hang'];
+  const lines = touch.on ? ['Bal hüvelykujj — mozgás', 'Jobb hüvelykujj — támadás (tartva: feltöltés)', 'KITÉRÉS — sérthetetlen suhanás', 'NOVA — ha a Kegyelem megtelt', 'FEGYVER — közelharci ↔ távolsági']
+    : ['WASD — mozgás', 'Egér / nyilak — támadás (tartva: feltöltés)', 'Space / Shift — kitérés', 'Q / jobb klikk — Szent Nova', 'X / Tab — fegyvercsere', 'F — teljes képernyő   •   M — hang'];
   lines.forEach((l, i) => ctx.fillText(l, 50, 126 + i * 19));
   // fegyverek
   ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = '#ffe27a'; ctx.fillText('Fegyvereid', 520, 104);
@@ -1484,19 +1470,16 @@ function drawPause() {
     ctx.font = `11px ${SANS}`; ctx.fillStyle = m ? RAR.morph.c : '#a9a2b8';
     ctx.fillText(`${'●'.repeat(lv)}${'○'.repeat(Math.max(0, 4 - lv))}  ${m ? 'Átalakult: ' + m.n : lv >= 3 ? 'Átalakulásra kész' : (k === 'melee' ? 'közelharci' : 'távolsági')}`, 568, y + 14);
   });
-  // ereklyék
-  ctx.textAlign = 'left'; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = RAR.relic.c; ctx.fillText(`Ereklyéid (${G.relics.length})`, 50, 262);
+  // kísértések
+  ctx.textAlign = 'left'; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = '#ff8a8a'; ctx.fillText(`Kísértéseid (${G.tempts.length})`, 50, 262);
   ctx.font = `12px ${SANS}`;
-  if (!G.relics.length) { ctx.fillStyle = '#888'; ctx.fillText('Még nincs ereklyéd. Az Ereklyék oltárán és a lelkektől kaphatsz.', 50, 284); }
-  G.relics.forEach((id, i) => { const r = RELICS[id]; if (!r) return; const col = i % 3, row = Math.floor(i / 3); ctx.fillStyle = r.col || RAR.relic.c; ctx.fillText(`${r.i || '✦'} ${r.n}`, 50 + col * 290, 284 + row * 18); });
-  // áldások
-  const by = 300 + Math.ceil(Math.max(1, G.relics.length) / 3) * 18;
-  ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = '#ffe27a'; ctx.fillText(`Áldásaid (${G.blessings.length})`, 50, by);
-  const cnt = {}; G.blessings.forEach(id => cnt[id] = (cnt[id] || 0) + 1);
-  const ids = Object.keys(cnt);
-  ctx.font = `12px ${SANS}`;
-  if (!ids.length) { ctx.fillStyle = '#888'; ctx.fillText('Még nincs áldásod.', 50, by + 22); }
-  ids.forEach((id, i) => { const b = BL.find(q => q.id === id); if (!b) return; const col = i % 3, row = Math.floor(i / 3); if (by + 22 + row * 17 > 560) return; ctx.fillStyle = (RAR[b.rar] || RAR.common).c; ctx.fillText(`${b.i} ${b.n}${cnt[id] > 1 ? ' ×' + cnt[id] : ''}`, 50 + col * 290, by + 22 + row * 17); });
+  if (!G.tempts.length) { ctx.fillStyle = '#888'; ctx.fillText('Még nincs. Minden legyőzött bűn kísértést hagy maga után: erősít téged, de a démonokat is.', 50, 284); }
+  G.tempts.forEach((id, i) => {
+    const t = TEMPTS[id]; if (!t) return; const x = 50 + (i % 2) * 440, y = 286 + Math.floor(i / 2) * 92;
+    ctx.font = `700 13px ${SERIF}`; ctx.fillStyle = RINGS[t.ri].col; ctx.fillText(`${t.i} ${t.n}`, x, y);
+    ctx.font = `11px ${SANS}`; ctx.fillStyle = '#d8e8c8'; const y2 = wrapText('✚ ' + t.d, x, y + 17, 420, 14);
+    ctx.fillStyle = '#ff9a9a'; wrapText('☠ ' + t.d2, x, y2 + 15, 420, 14);
+  });
   // gombok
   ctx.textAlign = 'center';
   ctx.globalAlpha = 0.6 + Math.sin(gt * 3) * 0.3; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = '#fff';
@@ -1554,8 +1537,8 @@ function drawTitle() {
   ctx.globalAlpha = 0.6 + Math.sin(gt * 3) * 0.4; ctx.font = `700 20px ${SERIF}`; ctx.fillStyle = '#fff';
   ctx.fillText(touch.on ? 'Érintsd meg a kezdéshez' : 'Kattints vagy nyomj ENTER-t a kezdéshez', CX, 450); ctx.globalAlpha = 1;
   ctx.font = `13px ${SANS}`; ctx.fillStyle = '#b8a8a0';
-  ctx.fillText(touch.on ? 'Bal hüvelykujj: mozgás  •  Jobb hüvelykujj: célzás és lövés (érintés = automatikus célzás)  •  Gombok: kitérés, Nova, vétel'
-    : 'WASD mozgás  •  Egér / nyilak támadás  •  Space kitérés  •  Q Szent Nova  •  X fegyvercsere  •  E vásárlás  •  Esc szünet  •  F teljes képernyő', CX, 500);
+  ctx.fillText(touch.on ? 'Bal hüvelykujj: mozgás  •  Jobb hüvelykujj: célzás és lövés (érintés = automatikus célzás)  •  Gombok: kitérés, Nova, fegyver'
+    : 'WASD mozgás  •  Egér / nyilak támadás  •  Space kitérés  •  Q Szent Nova  •  X fegyvercsere  •  Esc szünet  •  F teljes képernyő', CX, 500);
   ctx.fillStyle = '#7a6a70';
   ctx.fillText(`Legtöbb legyőzött bűn: ${Math.min(7, best.ring)} / 7   •   Győzelmek: ${best.wins}`, CX, 530);
 }
